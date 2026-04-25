@@ -1,0 +1,27 @@
+{
+  "n_rows": 2982,
+  "n_pitchers": 130,
+  "seasons": [
+    2024
+  ],
+  "target_mean": 5.449,
+  "target_std": 2.402,
+  "null_rates": {
+    "k_pct_last5": 0.0,
+    "k_pct_last15": 0.0,
+    "k_pct_season": 0.0,
+    "ff_pct": 0.0,
+    "sl_pct": 0.0,
+    "ff_velo_avg": 0.041,
+    "ff_spin_avg": 0.041,
+    "swstr_pct": 0.0,
+    "avg_ip_last5": 0.0,
+    "avg_bf_last5": 0.0,
+    "days_rest": 0.0,
+    "opp_k_pct": 0.0,
+    "opp_lineup_k_pct": 0.0,
+    "matchup_k_score": 0.03,
+    "is_home": 0.0,
+    "umpire_k_rate": 0.0
+  }
+}

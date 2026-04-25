@@ -1,0 +1,12 @@
+{
+  "model_type": "negative_binomial",
+  "test_mae": 1.8275,
+  "test_bias": 0.1608,
+  "bias_buckets": {
+    "3-5K": 0.126,
+    "5-7K": 0.15,
+    "7-9K": 0.348,
+    "9-15K": 2.263
+  },
+  "n_test": 2982
+}
