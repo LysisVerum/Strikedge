@@ -750,13 +750,6 @@ def skipped_record():
     return jsonify(records)
 
 
-@app.get("/api/k-accuracy")
-def k_accuracy():
-    if _current_tier() != "premium":
-        abort(403, "Premium required")
-    return jsonify(get_accuracy_stats())
-
-
 @app.delete("/api/picks/log-lines")
 def delete_log_line():
     if _current_tier() != "premium":
