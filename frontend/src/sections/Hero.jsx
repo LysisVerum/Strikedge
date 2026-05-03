@@ -141,7 +141,7 @@ export default function Hero() {
           marginBottom: '2.5rem',
         }}
       >
-        mlbet uses machine learning to surface statistically significant edges
+        StrikeEdge uses machine learning to surface statistically significant edges
         in pitcher strikeout props. Beat the books with data, not gut feelings.
       </motion.p>
 

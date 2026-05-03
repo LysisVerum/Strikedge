@@ -26,7 +26,7 @@ export default function DashboardNav({ user }) {
           <TrendingUp size={14} color="#fff" />
         </div>
         <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
-          ml<span style={{ color: 'var(--accent-blue)' }}>bet</span>
+          Strike<span style={{ color: 'var(--accent-blue)' }}>Edge</span>
         </span>
       </Link>
 

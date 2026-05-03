@@ -39,7 +39,7 @@ export default function Navbar() {
           color: 'var(--text-primary)',
           letterSpacing: '-0.5px',
         }}>
-          ml<span style={{ color: 'var(--accent-blue)' }}>bet</span>
+          Strike<span style={{ color: 'var(--accent-blue)' }}>Edge</span>
         </span>
       </div>
 
