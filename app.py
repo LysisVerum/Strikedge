@@ -1030,5 +1030,6 @@ if __name__ == "__main__":
     t = threading.Thread(target=_background_maintenance, args=(3600,), daemon=True)
     t.start()
 
-    print("\n[mlbet] Running at http://localhost:5000\n")
-    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+    port = int(os.environ.get("PORT", 5000))
+    print(f"\n[mlbet] Running at http://0.0.0.0:{port}\n")
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
