@@ -231,10 +231,17 @@ export default function PerformancePanel() {
     </div>
   );
 
-  const { overall, byTier, monthly, cumulative_pnl, bankroll, kelly_frac } = data;
-  const maxRoi   = Math.max(...monthly.map(m => Math.abs(m.roi)), 1);
-  const roiColor = overall.roi.startsWith('+') ? 'var(--accent-green)' : 'var(--accent-red)';
-  const pnlColor = overall.pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+  const overall       = data?.overall       ?? {};
+  const byTier        = data?.byTier        ?? {};
+  const monthly       = data?.monthly       ?? [];
+  const cumulative_pnl= data?.cumulative_pnl ?? [];
+  const bankroll      = data?.bankroll      ?? 1000;
+  const kelly_frac    = data?.kelly_frac    ?? 0.25;
+
+  const maxRoi   = monthly.length ? Math.max(...monthly.map(m => Math.abs(Number(m.roi) || 0)), 1) : 1;
+  const roiStr   = typeof overall.roi === 'string' ? overall.roi : `${(overall.roi ?? 0) >= 0 ? '+' : ''}${(overall.roi ?? 0).toFixed(1)}%`;
+  const roiColor = roiStr.startsWith('+') ? 'var(--accent-green)' : 'var(--accent-red)';
+  const pnlColor = (overall.pnl ?? 0) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
 
   return (
     <div>
@@ -256,10 +263,10 @@ export default function PerformancePanel() {
       {view === 'overview' && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem', marginBottom: '2rem' }}>
-            <StatBox label="Win Rate" value={overall.winRate} color="var(--accent-green)" delay={0} />
-            <StatBox label="ROI"      value={overall.roi}     color={roiColor}            delay={0.05} />
-            <StatBox label="P&L"      value={`${overall.pnl >= 0 ? '+$' : '-$'}${Math.abs(overall.pnl).toFixed(0)}`} color={pnlColor} delay={0.1} />
-            <StatBox label="Total Bets" value={overall.bets} sub={`${overall.wins}W · ${overall.losses}L · ${overall.pushes}P`} delay={0.15} />
+            <StatBox label="Win Rate" value={overall.winRate ?? '—'} color="var(--accent-green)" delay={0} />
+            <StatBox label="ROI"      value={roiStr}               color={roiColor}            delay={0.05} />
+            <StatBox label="P&L"      value={`${(overall.pnl ?? 0) >= 0 ? '+$' : '-$'}${Math.abs(overall.pnl ?? 0).toFixed(0)}`} color={pnlColor} delay={0.1} />
+            <StatBox label="Total Bets" value={overall.bets ?? 0} sub={`${overall.wins ?? 0}W · ${overall.losses ?? 0}L · ${overall.pushes ?? 0}P`} delay={0.15} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
@@ -277,7 +284,7 @@ export default function PerformancePanel() {
                         <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.78rem' }}>
                           <span style={{ color: 'var(--text-muted)' }}>{stats.bets} bets</span>
                           <span style={{ color: c.text, fontWeight: 700 }}>{stats.winRate}</span>
-                          <span style={{ color: stats.roi.startsWith('+') ? 'var(--accent-green)' : 'var(--accent-red)', fontWeight: 700 }}>{stats.roi}</span>
+                          <span style={{ color: (typeof stats.roi === 'string' ? stats.roi : `${stats.roi}`).startsWith('+') ? 'var(--accent-green)' : 'var(--accent-red)', fontWeight: 700 }}>{stats.roi}</span>
                         </div>
                       </div>
                       <div style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
