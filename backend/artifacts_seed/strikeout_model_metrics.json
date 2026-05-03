@@ -1,0 +1,36 @@
+{
+  "cv_mae": 1.838,
+  "cv_mae_std": 0.0088,
+  "train_mae": 1.7224,
+  "residual_std": 2.1571,
+  "n_samples": 29050,
+  "objective": "count:poisson",
+  "data_source": "synthetic_calibrated",
+  "features": [
+    "k_pct_last5",
+    "k_pct_last15",
+    "k_pct_season",
+    "fip_last15",
+    "ff_pct",
+    "ff_velo_avg",
+    "ff_spin_avg",
+    "swstr_pct",
+    "whiff_pct",
+    "csw_pct",
+    "avg_ip_last5",
+    "opp_k_pct",
+    "opp_lineup_k_pct",
+    "matchup_k_score",
+    "umpire_k_rate"
+  ],
+  "top_features": {
+    "k_pct_last15": 0.2916,
+    "k_pct_season": 0.1346,
+    "avg_ip_last5": 0.0612,
+    "ff_velo_avg": 0.0542,
+    "opp_lineup_k_pct": 0.0519,
+    "whiff_pct": 0.0477,
+    "csw_pct": 0.0466,
+    "swstr_pct": 0.0448
+  }
+}

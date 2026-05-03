@@ -62,6 +62,26 @@ from backend.app import stripe_handler
 
 load_dotenv(Path(__file__).parent / "backend" / ".env")
 
+# ---------------------------------------------------------------------------
+# Seed static artifacts into the Railway volume on first boot.
+# The volume at /app/backend/artifacts starts empty and overrides the files
+# copied by the Dockerfile. Seed from backend/artifacts_seed/ if missing.
+# ---------------------------------------------------------------------------
+def _seed_artifacts():
+    seed_dir    = Path(__file__).parent / "backend" / "artifacts_seed"
+    target_dir  = Path(__file__).parent / "backend" / "artifacts"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    if not seed_dir.exists():
+        return
+    for src in seed_dir.iterdir():
+        dst = target_dir / src.name
+        if not dst.exists():
+            import shutil
+            shutil.copy2(src, dst)
+            print(f"[seed] Copied {src.name} -> artifacts/")
+
+_seed_artifacts()
+
 FREE_PICKS_LIMIT = 2   # picks shown to free-tier / unauthenticated users
 
 FRONTEND_DIST = Path(__file__).parent / "frontend" / "dist"
