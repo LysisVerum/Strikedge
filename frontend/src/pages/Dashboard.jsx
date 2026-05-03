@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
   const [tab, setTab]                   = useState('picks');
+  const [refreshRunning, setRefreshRunning] = useState(false);
   const [upgrading, setUpgrading]       = useState(false);
   const [upgraded, setUpgraded]         = useState(searchParams.get('upgrade') === 'success');
 
@@ -44,12 +45,16 @@ export default function Dashboard() {
   const fetchPicks = async () => {
     setLoading(true); setError(null);
     try {
-      const data = await api.todayPicks();
-      setPicks(data.picks || []);
-      setTotalPicks(data.total_picks ?? (data.picks?.length ?? 0));
-      if (data.tokens_remaining != null) setTokens(data.tokens_remaining);
-      if (data.tokens_reset_at)          setResetAt(data.tokens_reset_at);
-      setMeta({ date: data.date, model_version: data.model_version, last_update: data.last_update });
+      const [picksData, health] = await Promise.all([
+        api.todayPicks(),
+        api.health().catch(() => null),
+      ]);
+      setPicks(picksData.picks || []);
+      setTotalPicks(picksData.total_picks ?? (picksData.picks?.length ?? 0));
+      if (picksData.tokens_remaining != null) setTokens(picksData.tokens_remaining);
+      if (picksData.tokens_reset_at)          setResetAt(picksData.tokens_reset_at);
+      setMeta({ date: picksData.date, model_version: picksData.model_version, last_update: picksData.last_update });
+      setRefreshRunning(health?.refresh_running ?? false);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   };
@@ -294,7 +299,16 @@ export default function Dashboard() {
                       {picks.length === 0 && (
                         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
                           <TrendingUp size={32} style={{ marginBottom: '0.75rem', opacity: 0.3 }} />
-                          <p>No picks with sufficient edge today.</p>
+                          {refreshRunning ? (
+                            <>
+                              <p style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Loading today's data…</p>
+                              <p style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>
+                                Fetching Statcast & odds — takes ~2 min on first load. Refresh the page when done.
+                              </p>
+                            </>
+                          ) : (
+                            <p>No picks with sufficient edge today.</p>
+                          )}
                         </div>
                       )}
                     </>

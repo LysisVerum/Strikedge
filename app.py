@@ -95,7 +95,9 @@ _store = {
     "slate":        [],   # raw starters from MLB API
     "last_update":  None,
     "model_loaded": False,
+    "refresh_running": False,
 }
+_refresh_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -306,6 +308,18 @@ def _background_maintenance(interval_seconds=3600):
 
 
 def refresh_data(force_odds_refresh: bool = False):
+    if not _refresh_lock.acquire(blocking=False):
+        print("[mlbet] refresh_data already running — skipping duplicate call")
+        return
+    _store["refresh_running"] = True
+    try:
+        _refresh_data_inner(force_odds_refresh)
+    finally:
+        _store["refresh_running"] = False
+        _refresh_lock.release()
+
+
+def _refresh_data_inner(force_odds_refresh: bool = False):
     print("[mlbet] Loading model...")
     try:
         strikeout_model.load()
@@ -533,6 +547,7 @@ def health():
         "last_update":           _store["last_update"],
         "n_picks":               len(_store["picks"]),
         "n_starters":            len(_store["slate"]),
+        "refresh_running":       _store["refresh_running"],
         "odds_credits_remaining": get_credits_remaining(),
     })
 
