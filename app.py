@@ -517,6 +517,7 @@ def today_picks():
     token_info = get_token_info(email) if email else {"tokens_remaining": 0, "tokens_reset_at": None}
 
     picks_out = []
+    pick_names = {p["pitcher_name"] for p in all_picks}
     for pick in all_picks:
         if pick["pitcher_name"] in unlocked:
             picks_out.append({**pick, "locked": False})
@@ -528,6 +529,19 @@ def today_picks():
                 "opponent":     pick.get("opponent", ""),
                 "has_line":     pick.get("has_line", True),
                 "locked":       True,
+            })
+
+    # Append remaining starters with no edge so free users see the full slate
+    for starter in _store.get("slate", []):
+        name = starter.get("full_name") or starter.get("name") or starter.get("pitcher_name", "")
+        if name and name not in pick_names:
+            picks_out.append({
+                "pitcher_name": name,
+                "matchup":      starter.get("matchup", ""),
+                "team":         starter.get("team", ""),
+                "has_line":     False,
+                "locked":       True,
+                "no_edge":      True,
             })
 
     return jsonify({

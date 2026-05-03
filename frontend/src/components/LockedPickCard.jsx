@@ -20,6 +20,37 @@ export default function LockedPickCard({ pick, tokens, onUnlocked, onUpgrade, in
     }
   };
 
+  // No-edge starters: show name only, no blurred stats or unlock button
+  if (pick.no_edge) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.06 }}
+        style={{
+          padding: '0.65rem 1.25rem',
+          borderRadius: 12,
+          border: '1px solid var(--border)',
+          background: 'var(--bg-card)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          opacity: 0.55,
+        }}
+      >
+        <Lock size={12} color="var(--text-muted)" />
+        <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+          {pick.pitcher_name}
+        </span>
+        {pick.matchup && (
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>
+            · {pick.matchup}
+          </span>
+        )}
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
