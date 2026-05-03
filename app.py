@@ -1018,10 +1018,11 @@ def serve_frontend(path):
 
 if __name__ == "__main__":
     init_db()
-    refresh_data()
 
-    t = threading.Thread(target=_background_maintenance, args=(3600,), daemon=True)
-    t.start()
+    # Run initial data load in background so Flask binds the port immediately
+    # (Railway health checks require the port to open within ~30s)
+    threading.Thread(target=refresh_data, daemon=True).start()
+    threading.Thread(target=_background_maintenance, args=(3600,), daemon=True).start()
 
     port = int(os.environ.get("PORT", 5000))
     print(f"\n[mlbet] Running at http://0.0.0.0:{port}\n")
