@@ -11,8 +11,10 @@ Usage:
 import sys
 import json
 import warnings
+import argparse
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 warnings.filterwarnings("ignore")
@@ -23,6 +25,7 @@ from app.models.features import FEATURE_COLS
 
 DATA_PATH  = Path("artifacts/test_data.parquet")
 OUT_PATH   = Path("artifacts/backtest_results.json")
+
 BANKROLL   = 1000.0
 KELLY_FRAC = 0.25
 MIN_EDGE   = 0.04
@@ -31,6 +34,34 @@ MIN_EDGE   = 0.04
 # UNDER is the model's structural edge; OVER needs dominant conviction
 OVER_HIGH_MIN   = 0.22   # require 22% edge for HIGH OVER
 OVER_MEDIUM_MIN = 999.0  # effectively ban MEDIUM OVER
+
+
+def _safe_feat(v):
+    try:
+        f = float(v)
+        return None if (np.isnan(f) or np.isinf(f)) else f
+    except (TypeError, ValueError):
+        return None
+
+
+def _row_features(row) -> dict:
+    return {
+        "k5":           _safe_feat(row.get("k_pct_last5")),
+        "k15":          _safe_feat(row.get("k_pct_last15")),
+        "ks":           _safe_feat(row.get("k_pct_season")),
+        "fip":          _safe_feat(row.get("fip_last15")),
+        "ip5":          _safe_feat(row.get("avg_ip_last5")),
+        "ff":           _safe_feat(row.get("ff_pct")),
+        "velo":         _safe_feat(row.get("ff_velo_avg")),
+        "spin":         _safe_feat(row.get("ff_spin_avg")),
+        "swstr":        _safe_feat(row.get("swstr_pct")),
+        "whiff":        _safe_feat(row.get("whiff_pct")),
+        "csw":          _safe_feat(row.get("csw_pct")),
+        "opp":          _safe_feat(row.get("opp_k_pct")),
+        "lineup_opp":   _safe_feat(row.get("opp_lineup_k_pct")),
+        "matchup_score": _safe_feat(row.get("matchup_k_score")),
+        "umpire":       _safe_feat(row.get("umpire_k_rate")),
+    }
 
 
 def _net_decimal(odds: int) -> float:
@@ -45,16 +76,19 @@ def _kelly_bet(prob_win: float, odds: int) -> float:
     return round(min(k * KELLY_FRAC * BANKROLL, BANKROLL), 2)
 
 
-def run_backtest():
+def run_backtest(data_path: Path = None, out_path: Path = None):
+    data_path = data_path or DATA_PATH
+    out_path  = out_path  or OUT_PATH
+
     print("=== mlbet Backtest ===\n")
 
-    if not DATA_PATH.exists():
-        print(f"No test data at {DATA_PATH}. Run train.build_dataset first.")
+    if not data_path.exists():
+        print(f"No test data at {data_path}. Run train.build_dataset first.")
         return
 
     strikeout_model.load()
 
-    df = pd.read_parquet(DATA_PATH).dropna(subset=["ks_per_start"])
+    df = pd.read_parquet(data_path).dropna(subset=["ks_per_start"])
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values("date").reset_index(drop=True)
 
@@ -86,6 +120,10 @@ def run_backtest():
         line       = real_entry["line"]
         over_odds  = real_entry["over_odds"]
         under_odds = real_entry.get("under_odds", -over_odds)
+
+        # Skip rows with no qualifying start history — same gate as live slate
+        if pd.isna(row.get("k_pct_last5")) or pd.isna(row.get("k_pct_last15")):
+            continue
 
         feature_row = row[FEATURE_COLS]
         pred = strikeout_model.predict(
@@ -132,19 +170,25 @@ def run_backtest():
             pnl     = -bet
 
         records.append({
-            "date":         date_str,
-            "pitcher_name": pitcher_name,
-            "mlbam_id":     int(row.get("mlbam_id", 0)),
-            "season":       int(row.get("season", 0)),
-            "predicted":    pred.predicted_ks,
-            "line":         line,
-            "actual":       actual,
-            "rec":          pred.recommendation,
-            "edge":         pred.edge_pct,
-            "confidence":   pred.confidence,
-            "bet":          bet,
-            "pnl":          pnl,
-            "outcome":      outcome,
+            "date":              date_str,
+            "pitcher_name":      pitcher_name,
+            "mlbam_id":          int(row.get("mlbam_id", 0)),
+            "season":            int(row.get("season", 0)),
+            "predicted":         pred.predicted_ks,
+            "predicted_ks":      pred.predicted_ks,
+            "line":              line,
+            "actual":            actual,
+            "rec":               pred.recommendation,
+            "recommendation":    pred.recommendation,
+            "edge":              pred.edge_pct,
+            "confidence":        pred.confidence,
+            "model_prob_over":   pred.model_prob_over,
+            "implied_prob_over": pred.implied_prob_over,
+            "edge_pct":          pred.edge_pct,
+            "bet":               bet,
+            "pnl":               pnl,
+            "outcome":           outcome,
+            "features":          _row_features(row),
         })
 
     df_r = pd.DataFrame(records)
@@ -224,11 +268,18 @@ def run_backtest():
         "records":        records_out,
     }
 
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUT_PATH.write_text(json.dumps(results, indent=2))
-    print(f"\nResults saved to {OUT_PATH}")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(results, indent=2))
+    print(f"\nResults saved to {out_path}")
     return results
 
 
 if __name__ == "__main__":
-    run_backtest()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data-path", type=str, default=None, help="Override test data parquet path")
+    parser.add_argument("--out-path",  type=str, default=None, help="Override results JSON output path")
+    args = parser.parse_args()
+    run_backtest(
+        data_path=Path(args.data_path) if args.data_path else None,
+        out_path=Path(args.out_path)   if args.out_path  else None,
+    )

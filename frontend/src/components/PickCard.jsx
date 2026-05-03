@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ExternalLink } from 'lucide-react';
 import PickDetail from './PickDetail';
+import PitcherCard from './PitcherCard';
 
 // PropOdds returns display names like "DraftKings", "FanDuel" — keyed both ways
 const BOOK_URLS = {
@@ -65,6 +66,7 @@ const REC_COLORS = {
 
 function NoLineCard({ pick, index }) {
   const [open, setOpen] = useState(false);
+  const [cardOpen, setCardOpen] = useState(false);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -100,7 +102,12 @@ function NoLineCard({ pick, index }) {
         {/* Main info */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
-            <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>{pick.pitcher_name}</span>
+            <button
+              onClick={e => { e.stopPropagation(); setCardOpen(true); }}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
+            >
+              {pick.pitcher_name}
+            </button>
             <span style={{
               fontSize: '0.68rem', fontWeight: 700, padding: '2px 7px', borderRadius: 999,
               background: 'rgba(139,148,158,0.10)', border: '1px solid rgba(139,148,158,0.25)',
@@ -131,12 +138,14 @@ function NoLineCard({ pick, index }) {
       <AnimatePresence>
         {open && <PickDetail key="detail" pick={pick} />}
       </AnimatePresence>
+      {cardOpen && <PitcherCard pick={pick} onClose={() => setCardOpen(false)} />}
     </motion.div>
   );
 }
 
 export default function PickCard({ pick, index }) {
   const [open, setOpen] = useState(false);
+  const [cardOpen, setCardOpen] = useState(false);
 
   if (!pick.has_line) return <NoLineCard pick={pick} index={index} />;
 
@@ -182,7 +191,12 @@ export default function PickCard({ pick, index }) {
         {/* Main info */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
-            <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>{pick.pitcher_name}</span>
+            <button
+              onClick={e => { e.stopPropagation(); setCardOpen(true); }}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
+            >
+              {pick.pitcher_name}
+            </button>
             <span style={{
               fontSize: '0.68rem', fontWeight: 700, padding: '2px 7px', borderRadius: 999,
               background: conf.bg, border: `1px solid ${conf.border}`, color: conf.text,
@@ -253,6 +267,7 @@ export default function PickCard({ pick, index }) {
       <AnimatePresence>
         {open && <PickDetail key="detail" pick={pick} />}
       </AnimatePresence>
+      {cardOpen && <PitcherCard pick={pick} onClose={() => setCardOpen(false)} />}
     </motion.div>
   );
 }

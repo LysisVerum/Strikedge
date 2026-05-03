@@ -31,6 +31,7 @@ class PredictionResponse(BaseModel):
     edge_pct_display: str  # "+8.4%"
     confidence: Literal["HIGH", "MEDIUM", "LOW"]
     recommendation: Literal["OVER", "UNDER", "PASS"]
+    features: dict | None = None
 
 
 class PickItem(BaseModel):
@@ -45,6 +46,7 @@ class PickItem(BaseModel):
     recommendation: Literal["OVER", "UNDER", "PASS"]
     model_prob_over: float
     implied_prob_over: float
+    features: dict | None = None
 
 
 class TodayPicksResponse(BaseModel):

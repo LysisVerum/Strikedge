@@ -65,6 +65,19 @@ def _load_month(year: int, month: int) -> pd.DataFrame:
         return pd.DataFrame(columns=KEEP_COLS)
 
 
+def invalidate_current_month():
+    """Delete current month's parquet if >20h old so next lookup re-fetches fresh data."""
+    today = date.today()
+    path = _month_cache_path(today.year, today.month)
+    if path.exists():
+        age_hours = (time.time() - path.stat().st_mtime) / 3600
+        if age_hours > 20:
+            path.unlink()
+            print(f"  [statcast] Invalidated stale cache: {path.name} (age: {age_hours:.1f}h)")
+            return True
+    return False
+
+
 def get_pitcher_statcast_range(
     mlbam_id: int,
     start_date: str,
@@ -97,6 +110,12 @@ def get_pitcher_statcast_range(
 # ---------------------------------------------------------------------------
 
 _SWINGING_MISS = {"swinging_strike", "swinging_strike_blocked"}
+_SWINGS = {
+    "swinging_strike", "swinging_strike_blocked",
+    "foul", "foul_tip", "foul_bunt", "bunt_foul_tip",
+    "hit_into_play", "missed_bunt", "foul_pitchout",
+}
+_CALLED_STRIKE = {"called_strike", "automatic_strike"}
 
 def pitch_mix_features(df: pd.DataFrame) -> dict:
     """
@@ -105,10 +124,10 @@ def pitch_mix_features(df: pd.DataFrame) -> dict:
     """
     if df.empty:
         return {
-            "ff_pct": np.nan, "sl_pct": np.nan,
+            "ff_pct": np.nan,
             "ch_pct": np.nan, "cb_pct": np.nan,
             "ff_velo_avg": np.nan, "ff_spin_avg": np.nan,
-            "swstr_pct": np.nan,
+            "swstr_pct": np.nan, "whiff_pct": np.nan, "csw_pct": np.nan,
         }
 
     # Use most recent 60 days
@@ -124,18 +143,26 @@ def pitch_mix_features(df: pd.DataFrame) -> dict:
 
     ff = recent[recent["pitch_type"] == "FF"]
 
-    swstr_pct = np.nan
+    swstr_pct = whiff_pct = csw_pct = np.nan
     if "description" in recent.columns and total > 0:
-        swstr_pct = float(recent["description"].isin(_SWINGING_MISS).sum() / total)
+        desc = recent["description"]
+        miss_count = desc.isin(_SWINGING_MISS).sum()
+        swings     = desc.isin(_SWINGS).sum()
+        csw_count  = desc.isin(_CALLED_STRIKE | _SWINGING_MISS).sum()
+
+        swstr_pct = float(miss_count / total)
+        whiff_pct = float(miss_count / swings) if swings > 0 else np.nan
+        csw_pct   = float(csw_count  / total)
 
     return {
         "ff_pct":      pct("FF"),
-        "sl_pct":      pct("SL"),
         "ch_pct":      pct("CH"),
         "cb_pct":      pct("CU"),
         "ff_velo_avg": float(ff["release_speed"].mean()) if not ff.empty else np.nan,
         "ff_spin_avg": float(ff["release_spin_rate"].mean()) if not ff.empty else np.nan,
         "swstr_pct":   swstr_pct,
+        "whiff_pct":   whiff_pct,
+        "csw_pct":     csw_pct,
     }
 
 

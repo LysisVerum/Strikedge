@@ -180,21 +180,28 @@ if __name__ == "__main__":
     parser.add_argument("--train-seasons", nargs="+", type=int, default=[2016, 2017, 2018, 2019, 2021, 2022, 2023])
     parser.add_argument("--test-seasons",  nargs="+", type=int, default=[2024])
     parser.add_argument("--min-gs",        type=int, default=8)
+    parser.add_argument("--train-out",     type=str, default=None, help="Override train output parquet path")
+    parser.add_argument("--test-out",      type=str, default=None, help="Override test output parquet path")
+    parser.add_argument("--test-only",     action="store_true", help="Skip building the train dataset")
     args = parser.parse_args()
 
     t0 = time.time()
 
-    print("=== Building TRAIN dataset ===")
-    df_train = build_dataset(args.train_seasons, args.min_gs)
-    if not df_train.empty:
-        df_train.to_parquet(TRAIN_PARQUET, index=False)
-        print(f"Train data saved: {TRAIN_PARQUET}  ({len(df_train):,} rows, seasons {args.train_seasons})")
+    train_out = Path(args.train_out) if args.train_out else TRAIN_PARQUET
+    test_out  = Path(args.test_out)  if args.test_out  else TEST_PARQUET
+
+    if not args.test_only:
+        print("=== Building TRAIN dataset ===")
+        df_train = build_dataset(args.train_seasons, args.min_gs)
+        if not df_train.empty:
+            df_train.to_parquet(train_out, index=False)
+            print(f"Train data saved: {train_out}  ({len(df_train):,} rows, seasons {args.train_seasons})")
 
     print("\n=== Building TEST dataset ===")
     df_test = build_dataset(args.test_seasons, args.min_gs)
     if not df_test.empty:
-        df_test.to_parquet(TEST_PARQUET, index=False)
-        print(f"Test data saved:  {TEST_PARQUET}  ({len(df_test):,} rows, seasons {args.test_seasons})")
+        df_test.to_parquet(test_out, index=False)
+        print(f"Test data saved:  {test_out}  ({len(df_test):,} rows, seasons {args.test_seasons})")
 
     elapsed = time.time() - t0
     print(f"\nDone in {elapsed/60:.1f} min")

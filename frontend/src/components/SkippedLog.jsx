@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { api } from '../api/client';
+import PitcherCard from './PitcherCard';
 
 const CONF_COLORS = {
   HIGH:   '#00c853',
@@ -20,6 +21,7 @@ export default function SkippedLog() {
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
+  const [cardPick, setCardPick] = useState(null);
 
   useEffect(() => {
     api.skipped()
@@ -84,6 +86,25 @@ export default function SkippedLog() {
 
   return (
     <div>
+      {cardPick && (
+        <PitcherCard
+          pick={{
+            pitcher_name:      cardPick.pitcher_name,
+            matchup:           cardPick.date ?? '',
+            predicted_ks:      cardPick.predicted_ks,
+            line:              cardPick.line,
+            model_prob_over:   cardPick.model_prob_over ?? null,
+            implied_prob_over: cardPick.implied_prob_over ?? null,
+            edge_pct:          cardPick.edge,
+            edge_pct_display:  cardPick.edge != null ? `${cardPick.edge >= 0 ? '+' : ''}${(cardPick.edge * 100).toFixed(1)}%` : '—',
+            confidence:        cardPick.confidence,
+            recommendation:    cardPick.recommendation,
+            features:          cardPick.features ?? null,
+          }}
+          onClose={() => setCardPick(null)}
+        />
+      )}
+
       {/* Summary strip */}
       <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
@@ -146,7 +167,12 @@ export default function SkippedLog() {
                     onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'}
                   >
                     <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{row.date}</td>
-                    <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{row.pitcher_name}</td>
+                    <td style={{ padding: '0.6rem 0.75rem', whiteSpace: 'nowrap' }}>
+                      <button onClick={() => setCardPick(row)}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
+                        {row.pitcher_name}
+                      </button>
+                    </td>
                     <td style={{ padding: '0.6rem 0.75rem' }}>
                       <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 999,
                         color: rec.color, background: rec.bg,

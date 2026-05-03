@@ -6,10 +6,16 @@ We cache aggressively since the API is slow and rate-limits heavy usage.
 """
 import time
 import json
+import unicodedata
 import urllib.request
 import urllib.parse
 from datetime import date, timedelta
 from functools import lru_cache
+
+
+def _ascii(s: str) -> str:
+    """Strip accents and normalize to plain ASCII lowercase."""
+    return unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode().lower()
 
 BASE = "https://statsapi.mlb.com/api/v1"
 _cache: dict = {}
@@ -203,7 +209,7 @@ def get_todays_starters(game_date: str = None) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def search_pitcher(query: str, season: int = 2024) -> list[dict]:
-    """Fuzzy name search against season leaderboard."""
-    q = query.lower()
+    """Fuzzy name search against season leaderboard. Accent-insensitive."""
+    q = _ascii(query)
     all_sps = get_season_sp_ids(season, min_gs=1)
-    return [p for p in all_sps if q in p["full_name"].lower()][:8]
+    return [p for p in all_sps if q in _ascii(p["full_name"])][:8]

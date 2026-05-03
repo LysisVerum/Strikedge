@@ -43,8 +43,9 @@ from backend.app.data.mlb_api import (
     get_team_k_pct,
     get_pitcher_multi_season_log,
     get_team_id_map,
+    _ascii,
 )
-from backend.app.data.statcast_agg import get_pitcher_statcast_range, pitch_mix_features
+from backend.app.data.statcast_agg import get_pitcher_statcast_range, pitch_mix_features, invalidate_current_month
 from backend.app.data.pipeline import build_inference_row
 from backend.app.data.odds_api import get_sp_strikeout_lines, match_line_to_starter, get_credits_remaining
 from backend.app.data.umpire import get_todays_umpires
@@ -131,16 +132,10 @@ def _build_features_manual(body: dict) -> pd.Series:
         "k_pct_last15": body.get("k_pct_last15") or 0.23,
         "k_pct_season": body.get("k_pct_season") or 0.23,
         "avg_ip_last5": body.get("avg_ip_last5") or 5.5,
-        "ff_pct":       body.get("ff_pct",       np.nan),
-        "sl_pct":       body.get("sl_pct",       np.nan),
-        "ch_pct":       body.get("ch_pct",       np.nan),
-        "cb_pct":       body.get("cb_pct",       np.nan),
-        "ff_velo_avg":  body.get("ff_velo_avg",  np.nan),
-        "ff_spin_avg":  body.get("ff_spin_avg",  np.nan),
-        "days_rest":    float(body.get("days_rest", 5)),
-        "opp_k_pct":    body.get("opp_k_pct")   or 0.225,
-        "is_home":      int(body.get("is_home", True)),
-
+        "ff_pct":       body.get("ff_pct",      np.nan),
+        "ff_velo_avg":  body.get("ff_velo_avg", np.nan),
+        "ff_spin_avg":  body.get("ff_spin_avg", np.nan),
+        "opp_k_pct":    body.get("opp_k_pct")  or 0.225,
     }
     return pd.Series({col: fd.get(col, np.nan) for col in FEATURE_COLS})
 
@@ -178,27 +173,36 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
         try:
             umpire_id = umpire_map.get(starter.get("game_pk"))
             features = _build_features_from_starter(starter, team_k_map, game_date, umpire_id=umpire_id)
+
+            # Skip pitchers with no qualifying start history — model defaults aren't reliable enough to bet
+            if pd.isna(features.get("k_pct_last5")) or pd.isna(features.get("k_pct_last15")):
+                print(f"  [skip] {name}: insufficient K-rate history — omitting from slate")
+                continue
+
             matchup  = f"vs {starter['opponent_abbr']} @ {'home' if starter['is_home'] else 'away'}"
 
             # Use live sportsbook line if available, else fall back to model-projected line
             odds_entry = match_line_to_starter(name, live_lines)
             if odds_entry:
-                line      = odds_entry["line"]
-                over_odds = odds_entry["over_odds"]
-                line_src  = odds_entry["book"]
-                has_live  = True
+                line       = odds_entry["line"]
+                over_odds  = odds_entry["over_odds"]
+                under_odds = odds_entry.get("under_odds", -over_odds)
+                line_src   = odds_entry["book"]
+                has_live   = True
             else:
-                _preview  = strikeout_model.predict(features, line=5.5, pitcher_name=name, matchup=matchup)
-                line      = round(_preview.predicted_ks * 2 - 0.5) / 2
-                line      = max(3.5, min(line, 12.5))
-                over_odds = -115
-                line_src  = "model"
-                has_live  = False
+                _preview   = strikeout_model.predict(features, line=5.5, pitcher_name=name, matchup=matchup)
+                line       = round(_preview.predicted_ks * 2 - 0.5) / 2
+                line       = max(3.5, min(line, 12.5))
+                over_odds  = -115
+                under_odds = -115
+                line_src   = "model"
+                has_live   = False
 
             pred = strikeout_model.predict(
                 feature_row  = features,
                 line         = line,
                 over_odds    = over_odds,
+                under_odds   = under_odds,
                 pitcher_name = name,
                 matchup      = matchup,
             )
@@ -207,16 +211,20 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
 
             if pred.recommendation == "OVER":
                 model_prob_win = pred.model_prob_over
+                bet_odds       = over_odds
             elif pred.recommendation == "UNDER":
                 model_prob_win = 1 - pred.model_prob_over
+                bet_odds       = under_odds
             else:
                 model_prob_win = 0.0
-            recommended_bet = _kelly_bet(model_prob_win, over_odds)
+                bet_odds       = over_odds
+            recommended_bet = _kelly_bet(model_prob_win, bet_odds)
 
             picks.append({
                 "rank":              0,
                 "has_line":          True,
                 "live_line":         has_live,
+                "mlbam_id":          starter.get("mlbam_id", 0),
                 "pitcher_name":      pred.pitcher_name,
                 "matchup":           pred.matchup,
                 "bet":               f"{side} {pred.line} K",
@@ -224,6 +232,8 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
                 "line":              pred.line,
                 "line_source":       line_src,
                 "over_odds":         over_odds,
+                "under_odds":        under_odds,
+                "bet_odds":          bet_odds,
                 "edge_pct_display":  _format_edge(pred.edge_pct),
                 "edge_pct":          pred.edge_pct,
                 "confidence":        pred.confidence,
@@ -234,20 +244,21 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
                 "opponent":          starter.get("opponent_abbr", ""),
                 "recommended_bet":   recommended_bet,
                 "features": {
-                    "k5":   _safe(fv.get("k_pct_last5")),
-                    "k15":  _safe(fv.get("k_pct_last15")),
-                    "ks":   _safe(fv.get("k_pct_season")),
-                    "ip5":  _safe(fv.get("avg_ip_last5")),
-                    "ff":   _safe(fv.get("ff_pct")),
-                    "sl":   _safe(fv.get("sl_pct")),
-                    "ch":   _safe(fv.get("ch_pct")),
-                    "cb":   _safe(fv.get("cb_pct")),
-                    "velo": _safe(fv.get("ff_velo_avg")),
-                    "spin": _safe(fv.get("ff_spin_avg")),
-                    "rest": int(_safe(fv.get("days_rest"), 5)),
-                    "opp":  _safe(fv.get("opp_k_pct"), 0.225),
-                    "home": bool(fv.get("is_home", True)),
-
+                    "k5":            _safe(fv.get("k_pct_last5")),
+                    "k15":           _safe(fv.get("k_pct_last15")),
+                    "ks":            _safe(fv.get("k_pct_season")),
+                    "fip":           _safe(fv.get("fip_last15")),
+                    "ip5":           _safe(fv.get("avg_ip_last5")),
+                    "ff":            _safe(fv.get("ff_pct")),
+                    "velo":          _safe(fv.get("ff_velo_avg")),
+                    "spin":          _safe(fv.get("ff_spin_avg")),
+                    "swstr":         _safe(fv.get("swstr_pct")),
+                    "whiff":         _safe(fv.get("whiff_pct")),
+                    "csw":           _safe(fv.get("csw_pct")),
+                    "opp":           _safe(fv.get("opp_k_pct"), 0.225),
+                    "lineup_opp":    _safe(fv.get("opp_lineup_k_pct")),
+                    "matchup_score": _safe(fv.get("matchup_k_score")),
+                    "umpire":        _safe(fv.get("umpire_k_rate")),
                 },
             })
         except Exception as e:
@@ -279,6 +290,8 @@ def refresh_data(force_odds_refresh: bool = False):
     except FileNotFoundError:
         print("[mlbet] Model not found -- run: cd backend && python -m train.train_strikeout")
         return
+
+    invalidate_current_month()
 
     game_date = date.today().isoformat()
     season    = date.today().year
@@ -332,6 +345,28 @@ def refresh_data(force_odds_refresh: bool = False):
     # Auto-log K predictions for accuracy tracking (no lines needed)
     logged = log_slate_predictions(game_date, picks)
     print(f"[mlbet] {logged} K predictions logged for accuracy tracking.")
+
+    # Auto-log picks with live sportsbook lines to the bet log (deduped by pitcher+date)
+    live_picks = [p for p in picks if p.get("live_line")]
+    if live_picks:
+        log_entries = [{
+            "pitcher_name":    p["pitcher_name"],
+            "mlbam_id":        p.get("mlbam_id", 0),
+            "line":            p["line"],
+            "over_odds":       p["over_odds"],
+            "under_odds":      p.get("under_odds", -p["over_odds"]),
+            "bet_odds":        p.get("bet_odds", p["over_odds"]),
+            "line_source":     p["line_source"],
+            "predicted_ks":    p["predicted_ks"],
+            "recommendation":  p["recommendation"],
+            "edge":            round(p["edge_pct"], 4),
+            "confidence":      p["confidence"],
+            "model_prob_over": p["model_prob_over"],
+            "bet":             p["recommended_bet"],
+            "features":        p.get("features", {}),
+        } for p in live_picks]
+        auto_logged = log_predictions(log_entries)
+        print(f"[mlbet] {auto_logged} picks auto-logged to bet log.")
 
 
 
@@ -540,10 +575,98 @@ def todays_slate():
 def performance():
     if not _current_email():
         abort(401, "Sign in to view performance data")
-    results_path = Path(__file__).parent / "backend" / "artifacts" / "backtest_results.json"
+    results_path = Path(__file__).parent / "backend" / "artifacts" / "backtest_results_combined.json"
+    if not results_path.exists():
+        results_path = Path(__file__).parent / "backend" / "artifacts" / "backtest_results.json"
     if not results_path.exists():
         return jsonify({"error": "No backtest results yet. Run: cd backend && python -m train.backtest"}), 404
-    return jsonify(json.loads(results_path.read_text()))
+
+    data = json.loads(results_path.read_text())
+
+    # Merge in live resolved bets from prediction_log
+    live_resolved = [
+        r for r in get_live_record().get("records", [])
+        if r.get("outcome") and (r.get("bet") or 0) > 0
+    ]
+    if live_resolved:
+        overall = data["overall"]
+        for r in live_resolved:
+            overall["bets"]    += 1
+            overall["wins"]    += 1 if r["outcome"] == "WIN"  else 0
+            overall["losses"]  += 1 if r["outcome"] == "LOSS" else 0
+            overall["pushes"]  += 1 if r["outcome"] == "PUSH" else 0
+            overall["wagered"] = (overall.get("wagered") or 0) + (r.get("bet") or 0)
+            overall["pnl"]     += (r.get("pnl") or 0)
+        w, l = overall["wins"], overall["losses"]
+        win_rate = w / (w + l) * 100 if (w + l) > 0 else 0
+        roi      = overall["pnl"] / overall["wagered"] * 100 if overall.get("wagered") else 0
+        overall["winRate"] = f"{win_rate:.1f}%"
+        overall["roi"]     = f"{'+' if roi >= 0 else ''}{roi:.1f}%"
+
+        # Extend cumulative P&L curve
+        running = data["cumulative_pnl"][-1] if data["cumulative_pnl"] else 0
+        for r in sorted(live_resolved, key=lambda x: x.get("date", "")):
+            running += (r.get("pnl") or 0)
+            data["cumulative_pnl"].append(round(running, 2))
+
+        # Update / append monthly buckets
+        monthly_map = {m["month"]: m for m in data["monthly"]}
+        for r in live_resolved:
+            key = (r.get("date") or "")[:7]
+            if key not in monthly_map:
+                monthly_map[key] = {"month": key, "bets": 0, "wins": 0, "losses": 0,
+                                    "pushes": 0, "pnl": 0.0, "wagered": 0.0, "roi": 0.0}
+            m = monthly_map[key]
+            m["bets"]    += 1
+            m["wins"]    += 1 if r["outcome"] == "WIN"  else 0
+            m["losses"]  += 1 if r["outcome"] == "LOSS" else 0
+            m["pushes"]  += 1 if r["outcome"] == "PUSH" else 0
+            m["pnl"]     += (r.get("pnl") or 0)
+            m["wagered"]  = m.get("wagered", 0) + (r.get("bet") or 0)
+            if m.get("wagered"):
+                m["roi"] = round(m["pnl"] / m["wagered"] * 100, 1)
+        data["monthly"] = sorted(monthly_map.values(), key=lambda x: x["month"])
+
+    return jsonify(data)
+
+
+@app.get("/api/k-accuracy")
+def k_accuracy():
+    if _current_tier() != "premium":
+        abort(403, "Premium required")
+
+    # Backtest per-game records
+    bt_path = Path(__file__).parent / "backend" / "artifacts" / "backtest_results_combined.json"
+    records = []
+    if bt_path.exists():
+        for r in json.loads(bt_path.read_text()).get("records", []):
+            if r.get("actual") is not None:
+                records.append({
+                    "pitcher_name": r["pitcher_name"],
+                    "predicted_ks": r["predicted_ks"],
+                    "actual_ks":    r["actual"],
+                    "date":         r["date"],
+                })
+
+    # Live resolved bets (bet > 0 only — skipped goes to /skipped)
+    for r in get_live_record().get("records", []):
+        if r.get("actual_ks") is not None and (r.get("bet") or 0) > 0:
+            records.append({
+                "pitcher_name": r["pitcher_name"],
+                "predicted_ks": r["predicted_ks"],
+                "actual_ks":    r["actual_ks"],
+                "date":         r["date"],
+            })
+
+    if records:
+        errors    = [abs(r["predicted_ks"] - r["actual_ks"]) for r in records]
+        mae       = round(sum(errors) / len(errors), 2)
+        within_1  = round(sum(1 for e in errors if e <= 1) / len(errors) * 100, 1)
+        within_2  = round(sum(1 for e in errors if e <= 2) / len(errors) * 100, 1)
+    else:
+        mae = within_1 = within_2 = None
+
+    return jsonify({"records": records, "mae": mae, "within_1": within_1, "within_2": within_2})
 
 
 @app.get("/api/live-record")
@@ -599,7 +722,26 @@ def skipped_record():
         abort(403, "Premium required")
     _auto_resolve_pending()
     records = get_skipped_record()
-    # Annotate each entry with how far off the model was once resolved
+
+    # Also include prediction_log entries where bet == 0 (Kelly sized out)
+    from backend.app.data.prediction_log import get_live_record
+    live = get_live_record().get("records", [])
+    for r in live:
+        if not r.get("bet"):
+            merged = {
+                "date":         r.get("date"),
+                "pitcher_name": r.get("pitcher_name"),
+                "mlbam_id":     r.get("mlbam_id"),
+                "line":         r.get("line"),
+                "predicted_ks": r.get("predicted_ks"),
+                "actual_ks":    r.get("actual_ks"),
+                "edge":         r.get("edge"),
+                "confidence":   r.get("confidence"),
+                "recommendation": r.get("recommendation"),
+                "skip_reason":  "Kelly stake = $0",
+            }
+            records.append(merged)
+
     for r in records:
         if r.get("actual_ks") is not None:
             r["miss"] = round(r["actual_ks"] - r["predicted_ks"], 2)
@@ -656,7 +798,7 @@ def log_lines():
     from backend.app.data.mlb_api import search_pitcher
 
     # Build a name→starter map from today's loaded slate for fast lookup
-    slate_map = {s["pitcher_name"].lower(): s for s in _store.get("slate", [])}
+    slate_map = {_ascii(s["pitcher_name"]): s for s in _store.get("slate", [])}
 
     predictions = []
     skipped = []
@@ -672,10 +814,11 @@ def log_lines():
 
         try:
             # Try to find this pitcher in today's slate first (has opponent/park info)
-            slate_entry = slate_map.get(name.lower())
+            name_ascii = _ascii(name)
+            slate_entry = slate_map.get(name_ascii)
             if not slate_entry:
-                # Fuzzy match by last name
-                last = name.lower().split()[-1]
+                # Fuzzy match by last name (accent-insensitive)
+                last = name_ascii.split()[-1]
                 slate_entry = next((s for k, s in slate_map.items() if last in k), None)
 
             if slate_entry:
@@ -738,6 +881,7 @@ def log_lines():
                 bet_odds = under_odds
             bet = _kelly_bet(model_prob_win, bet_odds)
 
+            fv = pred.features_used
             predictions.append({
                 "pitcher_name":    name,
                 "mlbam_id":        mlbam_id or 0,
@@ -752,6 +896,23 @@ def log_lines():
                 "confidence":      pred.confidence,
                 "model_prob_over": pred.model_prob_over,
                 "bet":             bet,
+                "features": {
+                    "k5":            _safe(fv.get("k_pct_last5")),
+                    "k15":           _safe(fv.get("k_pct_last15")),
+                    "ks":            _safe(fv.get("k_pct_season")),
+                    "fip":           _safe(fv.get("fip_last15")),
+                    "ip5":           _safe(fv.get("avg_ip_last5")),
+                    "ff":            _safe(fv.get("ff_pct")),
+                    "velo":          _safe(fv.get("ff_velo_avg")),
+                    "spin":          _safe(fv.get("ff_spin_avg")),
+                    "swstr":         _safe(fv.get("swstr_pct")),
+                    "whiff":         _safe(fv.get("whiff_pct")),
+                    "csw":           _safe(fv.get("csw_pct")),
+                    "opp":           _safe(fv.get("opp_k_pct"), 0.225),
+                    "lineup_opp":    _safe(fv.get("opp_lineup_k_pct")),
+                    "matchup_score": _safe(fv.get("matchup_k_score")),
+                    "umpire":        _safe(fv.get("umpire_k_rate")),
+                },
             })
         except Exception as e:
             print(f"  [log-lines] {name}: {e}")

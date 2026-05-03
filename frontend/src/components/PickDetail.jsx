@@ -72,14 +72,12 @@ export default function PickDetail({ pick }) {
 
         {/* Pitch mix */}
         <div>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Pitch Mix</p>
-          <StatBar label="Four-seam FB" value={f.ff} max={0.9} color="#1d9bf0" />
-          <StatBar label="Slider"       value={f.sl} max={0.9} color="#a855f7" />
-          <StatBar label="Changeup"     value={f.ch} max={0.9} color="#f59e0b" />
-          <StatBar label="Curveball"    value={f.cb} max={0.9} color="#00c853" />
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Pitch Arsenal</p>
+          <StatBar label="Four-seam FB" value={f.ff}    max={0.9} color="#1d9bf0" />
+          <StatBar label="Swinging strike %" value={f.swstr} max={0.20} color="#a855f7" />
           <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', gap: '1rem' }}>
             <span>Velo: <span style={{ color: f.velo ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600 }}>{f.velo ? `${f.velo.toFixed(1)} mph` : '—'}</span></span>
-            <span>Spin: <span style={{ color: f.spin ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600 }}>{f.spin ? `${Math.round(f.spin)}` : '—'}</span></span>
+            <span>Spin: <span style={{ color: f.spin ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600 }}>{f.spin ? `${Math.round(f.spin)} rpm` : '—'}</span></span>
           </div>
           {f.ff == null && (
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.4rem', fontStyle: 'italic' }}>
@@ -90,16 +88,10 @@ export default function PickDetail({ pick }) {
 
         {/* Context + Model math */}
         <div>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Game Context</p>
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Matchup Context</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem' }}>
-            <Chip label="Days Rest"   value={f.rest != null ? f.rest : '—'} />
-            <Chip label="Home / Away" value={f.home ? 'Home' : 'Away'} />
-            <Chip label="Opp K%"      value={f.opp ? `${(f.opp * 100).toFixed(1)}%` : '—'} color="var(--accent-amber)" />
-            <Chip
-              label="Park Factor"
-              value={f.park != null ? (f.park >= 0 ? `+${f.park.toFixed(2)}` : f.park.toFixed(2)) : '—'}
-              color={f.park >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}
-            />
+            <Chip label="Opp Team K%"   value={f.opp ? `${(f.opp * 100).toFixed(1)}%` : '—'}         color="var(--accent-amber)" />
+            <Chip label="Lineup K%"     value={f.lineup_opp ? `${(f.lineup_opp * 100).toFixed(1)}%` : '—'} color="var(--accent-amber)" />
           </div>
 
           <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>Model Output</p>

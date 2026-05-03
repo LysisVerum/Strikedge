@@ -14,27 +14,25 @@ FEATURE_COLS = [
     "k_pct_last5",
     "k_pct_last15",
     "k_pct_season",
+    # Pitcher quality (defense-independent)
+    "fip_last15",    # fielding-independent pitching over last 15 starts
     # Pitch-mix features (from Statcast)
     "ff_pct",        # four-seam fastball usage %
-    "sl_pct",        # slider usage %
-    # Velocity
+    # Velocity / spin
     "ff_velo_avg",
-    # Spin proxies
     "ff_spin_avg",
     # Swing-and-miss
-    "swstr_pct",     # swinging strike rate (swinging_strike + swinging_strike_blocked) / total pitches
+    "swstr_pct",     # swinging strike rate = (swinging_strike + swinging_strike_blocked) / total pitches
+    "whiff_pct",     # whiff rate = swinging_strike / total swings
+    "csw_pct",       # called strike + whiff % = (called_strike + swinging_strike) / total pitches
     # Recent workload
     "avg_ip_last5",
-    "avg_bf_last5",
-    "days_rest",
     # Opponent factors
     "opp_k_pct",           # opponent team K% prior season (fallback)
     "opp_lineup_k_pct",    # weighted K% of today's actual lineup (prior-season rates)
     "matchup_k_score",     # pitcher pitch mix × opponent K% vs each pitch type
-    # Context
-    "is_home",
     # Umpire
-    "umpire_k_rate",      # home plate umpire's historical K rate
+    "umpire_k_rate",       # home plate umpire's historical K rate
 ]
 
 

@@ -6,8 +6,6 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PickCard from '../components/PickCard';
 import LockedPickCard from '../components/LockedPickCard';
-import PitcherSearch from '../components/PitcherSearch';
-import QuickLine from '../components/QuickLine';
 import PerformancePanel from '../components/PerformancePanel';
 import HistoryLog from '../components/HistoryLog';
 import SkippedLog from '../components/SkippedLog';
@@ -215,9 +213,6 @@ export default function Dashboard() {
           >
             {tab === 'picks' && (
               <>
-                {isPremium && <QuickLine />}
-                {isPremium && <PitcherSearch />}
-
                 {loading && <SkeletonList />}
 
                 {error && (

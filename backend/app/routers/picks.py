@@ -24,6 +24,26 @@ def _format_edge(edge_pct: float) -> str:
     return f"{sign}{edge_pct * 100:.1f}%"
 
 
+def _feature_dict(row: pd.Series) -> dict:
+    def safe(key):
+        v = row.get(key)
+        return None if (v is None or (isinstance(v, float) and np.isnan(v))) else round(float(v), 4)
+    return {
+        "k5":      safe("k_pct_last5"),
+        "k15":     safe("k_pct_last15"),
+        "ks":      safe("k_pct_season"),
+        "ff":      safe("ff_pct"),
+        "velo":    safe("ff_velo_avg"),
+        "spin":    safe("ff_spin_avg"),
+        "swstr":   safe("swstr_pct"),
+        "ip5":     safe("avg_ip_last5"),
+        "opp":     safe("opp_k_pct"),
+        "lineup_opp": safe("opp_lineup_k_pct"),
+        "matchup_score": safe("matchup_k_score"),
+        "umpire":  safe("umpire_k_rate"),
+    }
+
+
 def _build_features_from_request(req: PredictRequest) -> pd.Series:
     """
     Build a feature row from the request.  Manual overrides take priority;
@@ -129,6 +149,7 @@ def predict_strikeouts(req: PredictRequest):
         edge_pct_display=_format_edge(pred.edge_pct),
         confidence=pred.confidence,
         recommendation=pred.recommendation,
+        features=_feature_dict(features),
     )
 
 
@@ -191,6 +212,7 @@ def today_picks():
                 recommendation=pred.recommendation,
                 model_prob_over=pred.model_prob_over,
                 implied_prob_over=pred.implied_prob_over,
+                features=_feature_dict(features),
             ))
         except Exception:
             continue

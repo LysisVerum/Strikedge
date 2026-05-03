@@ -34,35 +34,38 @@ def _rolling_features(game_log: list[dict], as_of_date: str) -> dict:
     Given a pitcher's full game log (sorted ascending), compute rolling
     K-rate and IP features as of (but not including) as_of_date.
     """
-    # Require >= 12 BF to exclude opener/injury-exit starts from rolling window
-    past = [g for g in game_log if g["date"] < as_of_date and g["BF"] >= 12 and g.get("is_start", 1)]
+    # BF >= 9 filters injury exits while keeping opener-style short starts
+    past = [g for g in game_log if g["date"] < as_of_date and g["BF"] >= 9 and g.get("is_start", 1)]
     if not past:
         return {
             "k_pct_last5":  np.nan,
             "k_pct_last15": np.nan,
             "k_pct_season": np.nan,
+            "fip_last15":   np.nan,
             "avg_ip_last5": np.nan,
-            "avg_bf_last5": np.nan,
-            "days_rest":    np.nan,
         }
 
     def k_pct(rows): return sum(r["SO"] for r in rows) / max(sum(r["BF"] for r in rows), 1)
+
+    def fip(rows) -> float:
+        ip = sum(r.get("IP", 0) for r in rows)
+        if ip < 1:
+            return np.nan
+        hr = sum(r.get("HR", 0) for r in rows)
+        bb = sum(r.get("BB", 0) for r in rows)
+        so = sum(r.get("SO", 0) for r in rows)
+        return round((13 * hr + 3 * bb - 2 * so) / ip + 3.10, 3)
 
     season_rows = [g for g in past if g.get("season") == int(as_of_date[:4])]
     last5  = past[-5:]
     last15 = past[-15:]
 
-    last_date = past[-1]["date"]
-    raw_rest  = (date.fromisoformat(as_of_date) - date.fromisoformat(last_date)).days
-    days_rest = min(float(raw_rest), 7.0)
-
     return {
         "k_pct_last5":  k_pct(last5),
         "k_pct_last15": k_pct(last15),
         "k_pct_season": k_pct(season_rows) if season_rows else k_pct(last15),
+        "fip_last15":   fip(last15),
         "avg_ip_last5": float(np.mean([g["IP"] for g in last5])),
-        "avg_bf_last5": float(np.mean([g["BF"] for g in last5])),
-        "days_rest":    float(days_rest),
     }
 
 
@@ -74,7 +77,7 @@ def build_inference_row(
     mlbam_id: int,
     game_date: str,
     opponent_id: int,
-    is_home: bool,
+    is_home: bool = False,  # kept for call-site compatibility, no longer used
     season: int = None,
     _team_k_cache: dict = None,
     umpire_id: int = None,
@@ -88,12 +91,14 @@ def build_inference_row(
         season = int(game_date[:4])
 
     # -- Game log rolling features --
-    seasons_to_pull = [season - 1, season] if int(game_date[5:7]) < 5 else [season]
+    # Include prior season through June — pitchers only have ~5-8 starts by then
+    seasons_to_pull = [season - 1, season] if int(game_date[5:7]) < 7 else [season]
     game_log = get_pitcher_multi_season_log(mlbam_id, seasons_to_pull)
     rolling  = _rolling_features(game_log, game_date)
 
-    # -- Pitch mix from Statcast — look back 365 days to cover prior season --
-    sc_start = (date.fromisoformat(game_date) - timedelta(days=365)).isoformat()
+    # -- Pitch mix from Statcast — pitch_mix_features() uses last 60 days anyway,
+    #    so 120 days is sufficient and avoids fetching 12+ uncached monthly parquets --
+    sc_start = (date.fromisoformat(game_date) - timedelta(days=120)).isoformat()
     sc_df    = get_pitcher_statcast_range(mlbam_id, sc_start, game_date)
     mix      = pitch_mix_features(sc_df)
 
@@ -120,11 +125,10 @@ def build_inference_row(
     feature_dict = {
         **rolling,
         **mix,
-        "opp_k_pct":         opp_k_pct,
-        "opp_lineup_k_pct":  lineup_k,
-        "matchup_k_score":   matchup_k,
-        "is_home":       int(is_home),
-        "umpire_k_rate": umpire_k,
+        "opp_k_pct":        opp_k_pct,
+        "opp_lineup_k_pct": lineup_k,
+        "matchup_k_score":  matchup_k,
+        "umpire_k_rate":    umpire_k,
     }
 
     return pd.Series({col: feature_dict.get(col, np.nan) for col in FEATURE_COLS})
@@ -157,11 +161,10 @@ def build_training_row(
     feature_dict = {
         **rolling,
         **pitch_mix,
-        "opp_k_pct":         opp_k_pct,
-        "opp_lineup_k_pct":  opp_lineup_k_pct if opp_lineup_k_pct is not None else np.nan,
-        "matchup_k_score":   matchup_k_score if matchup_k_score is not None else np.nan,
-        "is_home":       int(game.get("is_home", True)),
-        "umpire_k_rate": umpire_k,
+        "opp_k_pct":        opp_k_pct,
+        "opp_lineup_k_pct": opp_lineup_k_pct if opp_lineup_k_pct is not None else np.nan,
+        "matchup_k_score":  matchup_k_score if matchup_k_score is not None else np.nan,
+        "umpire_k_rate":    umpire_k,
     }
 
     return {

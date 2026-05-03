@@ -131,14 +131,14 @@ class StrikeoutModel:
         # at higher K totals, so we demand a larger edge to compensate.
         if predicted_ks < 4:
             over_threshold = 0.08
-        elif predicted_ks < 6:
-            over_threshold = 0.12
+        elif predicted_ks < 6.5:
+            over_threshold = 0.10
         else:
-            over_threshold = 0.18
+            over_threshold = 0.12
 
         if edge_over >= edge_under:
             recommendation = "OVER" if edge_over >= over_threshold else "PASS"
-        elif edge_under >= 0.05:
+        elif edge_under >= 0.15:
             recommendation = "UNDER"
         else:
             recommendation = "PASS"

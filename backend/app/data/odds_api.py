@@ -31,6 +31,11 @@ _ARTIFACTS = Path(__file__).parent.parent.parent / "artifacts"
 _DISK_TTL  = 7200  # 2 hours before disk cache is considered stale
 
 _credits_remaining: int | None = None
+_last_real_fetch_ts: float = 0.0   # epoch seconds of last actual API call
+_FORCE_REFRESH_MIN_INTERVAL = 1800  # 30 minutes between force-refreshes
+
+# Preferred sportsbook order — first available book wins per pitcher
+PREFERRED_BOOKS = ["DraftKings", "FanDuel", "BetMGM", "Caesars", "PointsBet"]
 
 
 def get_credits_remaining() -> int | None:
@@ -118,10 +123,21 @@ def _save_disk_cache(lines: dict):
 def _parse_events(events: list) -> dict[str, dict]:
     """
     Parse event odds objects into {pitcher_name_lower: {line, over_odds, under_odds, book}}.
+    Uses PREFERRED_BOOKS ordering so we consistently pull from the same book per pitcher.
     """
     result: dict[str, dict] = {}
     for event in events:
-        for bookmaker in event.get("bookmakers", []):
+        bookmakers = event.get("bookmakers", [])
+        # Sort by preferred book order; unknown books go last
+        def _book_rank(bm):
+            title = bm.get("title", "")
+            try:
+                return PREFERRED_BOOKS.index(title)
+            except ValueError:
+                return len(PREFERRED_BOOKS)
+        bookmakers = sorted(bookmakers, key=_book_rank)
+
+        for bookmaker in bookmakers:
             book = bookmaker.get("title", "")
             for market in bookmaker.get("markets", []):
                 if market.get("key") != MARKET:
@@ -142,13 +158,13 @@ def _parse_events(events: list) -> dict[str, dict]:
                             "under_odds": -115,
                             "book":       book,
                         }
-                # second pass: fill under_odds
+                # second pass: fill under_odds for the same book we already recorded
                 for outcome in outcomes:
                     name  = (outcome.get("description") or outcome.get("name") or "").strip()
                     price = outcome.get("price")
                     label = (outcome.get("name") or "").lower()
                     key   = name.lower()
-                    if key in result and "under" in label and price is not None:
+                    if key in result and result[key]["book"] == book and "under" in label and price is not None:
                         result[key]["under_odds"] = int(price)
     return result
 
@@ -163,11 +179,18 @@ def get_sp_strikeout_lines(force_refresh: bool = False) -> dict[str, dict]:
     Player props require the per-event endpoint (bulk endpoint only supports game markets).
 
     Uses a disk cache (2-hour TTL) to avoid burning credits on every refresh.
-    Pass force_refresh=True to bypass the cache.
+    Pass force_refresh=True to bypass the cache, subject to a 30-minute throttle.
 
     Returns:
         {"gerrit cole": {"line": 7.5, "over_odds": -130, "under_odds": 110, "book": "DraftKings"}}
     """
+    global _last_real_fetch_ts
+    if force_refresh:
+        age = time.time() - _last_real_fetch_ts
+        if age < _FORCE_REFRESH_MIN_INTERVAL:
+            print(f"  [odds-api] force_refresh throttled — last fetch was {int(age / 60)}m ago (min {_FORCE_REFRESH_MIN_INTERVAL // 60}m)")
+            force_refresh = False
+
     if not force_refresh:
         cached = _load_disk_cache()
         if cached is not None:
@@ -194,6 +217,7 @@ def get_sp_strikeout_lines(force_refresh: bool = False) -> dict[str, dict]:
 
     print(f"  [odds-api] {len(result)} pitcher K lines fetched from API.")
     _save_disk_cache(result)
+    _last_real_fetch_ts = time.time()
     return result
 
 

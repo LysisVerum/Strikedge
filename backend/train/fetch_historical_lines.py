@@ -4,13 +4,14 @@ date in the training data, then cache them to artifacts/historical_lines.json.
 
 Usage:
     cd backend
-    python -m train.fetch_historical_lines              # fetch all missing dates
-    python -m train.fetch_historical_lines --max-dates 20  # fetch at most 20 new dates
+    python -m train.fetch_historical_lines              # fetch all missing dates from test_data.parquet
+    python -m train.fetch_historical_lines --season 2025            # fetch all 2025 game dates
+    python -m train.fetch_historical_lines --season 2025 --max-dates 70  # fetch first 70 dates
 
 WARNING: Historical endpoints cost 10 credits per call (10x live data).
 Each date requires ~16 calls (1 event list + ~15 per-game odds requests).
-A full 2024 season (~150 dates) = ~24,000 credits.
-Run with --max-dates to spread the cost across multiple days.
+A full season (~180 dates) = ~28,800 credits.
+Run with --max-dates to spread the cost across multiple months.
 
 This only needs to run once per date (already-fetched dates are skipped on resume).
 """
@@ -18,7 +19,10 @@ import sys
 import json
 import time
 import argparse
+import urllib.request
+import urllib.parse
 from pathlib import Path
+from datetime import date, timedelta
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -29,15 +33,35 @@ OUT_PATH             = Path("artifacts/historical_lines.json")
 CREDITS_PER_DATE_EST = 160   # 16 calls × 10 credits each (historical endpoint multiplier)
 
 
-def run(max_dates: int | None = None):
-    if not DATA_PATH.exists():
-        print(f"No training data at {DATA_PATH}. Run train.build_dataset first.")
-        return
+def _mlb_game_dates(season: int) -> list[str]:
+    """Fetch all regular-season game dates for a given year from the free MLB Stats API."""
+    print(f"Fetching {season} MLB schedule from Stats API...", flush=True)
+    url = (
+        f"https://statsapi.mlb.com/api/v1/schedule"
+        f"?sportId=1&season={season}&gameType=R&fields=dates,date,games,gamePk"
+    )
+    with urllib.request.urlopen(url, timeout=30) as r:
+        data = json.loads(r.read())
+    dates = sorted({
+        entry["date"]
+        for entry in data.get("dates", [])
+        if entry.get("games")
+    })
+    print(f"  {len(dates)} game dates found for {season}.")
+    return dates
 
-    df = pd.read_parquet(DATA_PATH).dropna(subset=["ks_per_start"])
-    df["date"] = pd.to_datetime(df["date"])
 
-    all_dates = sorted(df["date"].dt.strftime("%Y-%m-%d").unique())
+def run(max_dates: int | None = None, yes: bool = False, season: int | None = None):
+    # Determine which dates to consider
+    if season is not None:
+        all_dates = _mlb_game_dates(season)
+    else:
+        if not DATA_PATH.exists():
+            print(f"No training data at {DATA_PATH}. Run train.build_dataset first.")
+            return
+        df = pd.read_parquet(DATA_PATH).dropna(subset=["ks_per_start"])
+        df["date"] = pd.to_datetime(df["date"])
+        all_dates = sorted(df["date"].dt.strftime("%Y-%m-%d").unique())
 
     # Load existing cache so we can resume if interrupted
     existing: dict = {}
@@ -46,7 +70,7 @@ def run(max_dates: int | None = None):
 
     missing = [d for d in all_dates if d not in existing]
 
-    print(f"Total test-set dates:  {len(all_dates)}")
+    print(f"Total dates:           {len(all_dates)}")
     print(f"Already cached:        {len(existing)}")
     print(f"Remaining to fetch:    {len(missing)}")
 
@@ -64,10 +88,11 @@ def run(max_dates: int | None = None):
         print(f"Remaining after this:  {len(missing) - len(to_fetch)} dates "
               f"(run again to continue)")
 
-    answer = input("\nProceed? [y/N] ").strip().lower()
-    if answer != "y":
-        print("Aborted.")
-        return
+    if not yes:
+        answer = input("\nProceed? [y/N] ").strip().lower()
+        if answer != "y":
+            print("Aborted.")
+            return
 
     from app.data.odds_api import get_historical_lines, get_credits_remaining
 
@@ -88,7 +113,7 @@ def run(max_dates: int | None = None):
         OUT_PATH.write_text(json.dumps(existing, indent=2))
         time.sleep(1.0)  # 1s between dates to stay within rate limits
 
-    print(f"\nDone. {len(existing)}/{len(all_dates)} dates now cached in {OUT_PATH}")
+    print(f"\nDone. {len(existing)} total dates cached in {OUT_PATH}")
     remaining = get_credits_remaining()
     if remaining is not None:
         print(f"Credits remaining: {remaining}")
@@ -100,5 +125,13 @@ if __name__ == "__main__":
         "--max-dates", type=int, default=None,
         help="Max number of new dates to fetch in this run (default: all missing)"
     )
+    parser.add_argument(
+        "--season", type=int, default=None,
+        help="Fetch dates for a specific MLB season (e.g. 2025) via the free MLB schedule API"
+    )
+    parser.add_argument(
+        "--yes", action="store_true",
+        help="Skip confirmation prompt"
+    )
     args = parser.parse_args()
-    run(max_dates=args.max_dates)
+    run(max_dates=args.max_dates, yes=args.yes, season=args.season)
