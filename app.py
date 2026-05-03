@@ -17,6 +17,7 @@ To rebuild the model on real data:
     cd backend && python -m train.build_dataset
     cd backend && python -m train.train_strikeout
 """
+import os
 import sys
 import json
 import math
