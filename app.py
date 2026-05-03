@@ -717,28 +717,36 @@ def k_accuracy():
     if _current_tier() != "premium":
         abort(403, "Premium required")
 
-    # Backtest per-game records
-    bt_path = Path(__file__).parent / "backend" / "artifacts" / "backtest_results_combined.json"
+    artifacts = Path(__file__).parent / "backend" / "artifacts"
+
+    # Full all-starters backtest (no lines needed — 6k+ games, 207 pitchers)
+    seen = set()
     records = []
-    if bt_path.exists():
-        for r in json.loads(bt_path.read_text()).get("records", []):
-            if r.get("actual") is not None:
+    acc_path = artifacts / "k_accuracy_backtest.json"
+    if acc_path.exists():
+        for r in json.loads(acc_path.read_text()).get("records", []):
+            key = (r["pitcher_name"], r["date"])
+            if key not in seen:
+                seen.add(key)
                 records.append({
                     "pitcher_name": r["pitcher_name"],
                     "predicted_ks": r["predicted_ks"],
-                    "actual_ks":    r["actual"],
+                    "actual_ks":    r["actual_ks"],
                     "date":         r["date"],
                 })
 
-    # Live resolved bets (bet > 0 only — skipped goes to /skipped)
+    # Live resolved bets appended as they settle
     for r in get_live_record().get("records", []):
         if r.get("actual_ks") is not None and (r.get("bet") or 0) > 0:
-            records.append({
-                "pitcher_name": r["pitcher_name"],
-                "predicted_ks": r["predicted_ks"],
-                "actual_ks":    r["actual_ks"],
-                "date":         r["date"],
-            })
+            key = (r["pitcher_name"], r["date"])
+            if key not in seen:
+                seen.add(key)
+                records.append({
+                    "pitcher_name": r["pitcher_name"],
+                    "predicted_ks": r["predicted_ks"],
+                    "actual_ks":    r["actual_ks"],
+                    "date":         r["date"],
+                })
 
     if records:
         errors    = [abs(r["predicted_ks"] - r["actual_ks"]) for r in records]
