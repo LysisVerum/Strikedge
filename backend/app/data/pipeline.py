@@ -96,9 +96,8 @@ def build_inference_row(
     game_log = get_pitcher_multi_season_log(mlbam_id, seasons_to_pull)
     rolling  = _rolling_features(game_log, game_date)
 
-    # -- Pitch mix from Statcast — pitch_mix_features() uses last 60 days anyway,
-    #    so 120 days is sufficient and avoids fetching 12+ uncached monthly parquets --
-    sc_start = (date.fromisoformat(game_date) - timedelta(days=120)).isoformat()
+    # pitch_mix_features() uses last 60 days — fetch 65 days to match, not 120
+    sc_start = (date.fromisoformat(game_date) - timedelta(days=65)).isoformat()
     sc_df    = get_pitcher_statcast_range(mlbam_id, sc_start, game_date)
     mix      = pitch_mix_features(sc_df)
 

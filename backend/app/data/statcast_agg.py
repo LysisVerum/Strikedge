@@ -52,7 +52,7 @@ def _load_month(year: int, month: int) -> pd.DataFrame:
 
     print(f"    Fetching Statcast {start} to {end}...", end=" ", flush=True)
     try:
-        df = statcast(start, end)
+        df = statcast(start, end, parallel=False)
         result = pd.DataFrame(columns=KEEP_COLS) if df.empty else df[[c for c in KEEP_COLS if c in df.columns]].copy()
         if not result.empty:
             result["game_date"] = pd.to_datetime(result["game_date"])
