@@ -279,7 +279,10 @@ def _background_maintenance(interval_seconds=3600):
             purge_expired()
         except Exception as e:
             print(f"[db] purge_expired error: {e}")
-        refresh_data()
+        try:
+            refresh_data()
+        except Exception as e:
+            print(f"[maintenance] refresh_data error: {e}")
 
 
 def refresh_data(force_odds_refresh: bool = False):
@@ -336,7 +339,11 @@ def refresh_data(force_odds_refresh: bool = False):
         umpire_map = {}
 
     print("[mlbet] Building feature rows and running model...")
-    picks = _run_slate(starters, team_k_map, game_date, live_lines, umpire_map)
+    try:
+        picks = _run_slate(starters, team_k_map, game_date, live_lines, umpire_map)
+    except Exception as e:
+        print(f"[mlbet] _run_slate error: {e}")
+        picks = []
 
     _store["picks"]       = picks
     _store["slate"]       = starters
@@ -1020,9 +1027,14 @@ def serve_frontend(path):
 if __name__ == "__main__":
     init_db()
 
-    # Run initial data load in background so Flask binds the port immediately
-    # (Railway health checks require the port to open within ~30s)
-    threading.Thread(target=refresh_data, daemon=True).start()
+    def _startup_refresh():
+        time.sleep(15)  # let Flask bind and pass the health check first
+        try:
+            refresh_data()
+        except Exception as e:
+            print(f"[startup] refresh_data error: {e}")
+
+    threading.Thread(target=_startup_refresh, daemon=True).start()
     threading.Thread(target=_background_maintenance, args=(3600,), daemon=True).start()
 
     port = int(os.environ.get("PORT", 5000))
