@@ -455,6 +455,28 @@ def auth_logout():
     return jsonify({"status": "logged out"})
 
 
+# ---- Admin -----------------------------------------------------------------
+
+@app.post("/api/admin/set-premium")
+def admin_set_premium():
+    body      = request.get_json(force=True) or {}
+    admin_key = body.get("key", "")
+    email     = body.get("email", "").strip().lower()
+    expected  = os.environ.get("ADMIN_KEY", "")
+    if not expected or admin_key != expected:
+        abort(403, "Forbidden")
+    if not email:
+        abort(400, "email required")
+    from datetime import timezone, timedelta
+    expires = (datetime.now(timezone.utc) + timedelta(days=3650)).isoformat()
+    from backend.app.users import set_premium
+    set_premium(email,
+                stripe_customer_id     = "manual",
+                stripe_subscription_id = "manual",
+                expires_at             = expires)
+    return jsonify({"status": "ok", "email": email, "tier": "premium", "expires": expires})
+
+
 # ---- Stripe ----------------------------------------------------------------
 
 @app.post("/api/stripe/checkout")
@@ -533,12 +555,15 @@ def today_picks():
 
     # Append remaining starters with no edge so free users see the full slate
     for starter in _store.get("slate", []):
-        name = starter.get("full_name") or starter.get("name") or starter.get("pitcher_name", "")
+        name = starter.get("pitcher_name") or starter.get("full_name") or starter.get("name", "")
         if name and name not in pick_names:
+            team    = starter.get("team", "")
+            opp     = starter.get("opponent_abbr") or starter.get("opponent_name", "")
+            matchup = f"{team} vs {opp}" if team and opp else (starter.get("matchup", ""))
             picks_out.append({
                 "pitcher_name": name,
-                "matchup":      starter.get("matchup", ""),
-                "team":         starter.get("team", ""),
+                "matchup":      matchup,
+                "team":         team,
                 "has_line":     False,
                 "locked":       True,
                 "no_edge":      True,
