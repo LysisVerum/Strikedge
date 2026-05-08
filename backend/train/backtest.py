@@ -26,14 +26,10 @@ from app.models.features import FEATURE_COLS
 DATA_PATH  = Path("artifacts/test_data.parquet")
 OUT_PATH   = Path("artifacts/backtest_results.json")
 
-BANKROLL   = 1000.0
-KELLY_FRAC = 0.25
-MIN_EDGE   = 0.04
-
-# OVER bets require much higher edge — model systematically overpredicts
-# UNDER is the model's structural edge; OVER needs dominant conviction
-OVER_HIGH_MIN   = 0.22   # require 22% edge for HIGH OVER
-OVER_MEDIUM_MIN = 999.0  # effectively ban MEDIUM OVER
+BANKROLL       = 1000.0
+KELLY_FRAC     = 0.25
+MIN_EDGE_UNDER = 0.10   # 10% edge required for UNDER picks
+MIN_EDGE_OVER  = 0.15   # 15% edge required for OVER picks (higher bar — model overpredicts)
 
 
 def _safe_feat(v):
@@ -134,17 +130,14 @@ def run_backtest(data_path: Path = None, out_path: Path = None):
             pitcher_name = pitcher_name,
         )
 
-        if pred.recommendation == "PASS" or abs(pred.edge_pct) < MIN_EDGE:
+        if pred.recommendation == "PASS" or pred.confidence == "LOW":
             continue
 
-        # Stricter edge requirement for OVER to account for model's overprediction bias
         edge = abs(pred.edge_pct)
-        if pred.recommendation == "OVER":
-            if pred.confidence == "HIGH"   and edge < OVER_HIGH_MIN:   continue
-            if pred.confidence == "MEDIUM" and edge < OVER_MEDIUM_MIN: continue
-            if pred.confidence == "LOW":                                continue
-        else:
-            if pred.confidence == "LOW":                                continue
+        if pred.recommendation == "UNDER" and edge < MIN_EDGE_UNDER:
+            continue
+        if pred.recommendation == "OVER"  and edge < MIN_EDGE_OVER:
+            continue
 
         actual = float(row["ks_per_start"])
 
@@ -250,7 +243,8 @@ def run_backtest(data_path: Path = None, out_path: Path = None):
         "test_rows":    len(df_r),
         "bankroll":     BANKROLL,
         "kelly_frac":   KELLY_FRAC,
-        "min_edge":     MIN_EDGE,
+        "min_edge_under": MIN_EDGE_UNDER,
+        "min_edge_over":  MIN_EDGE_OVER,
         "overall": {
             "bets":    len(df_r),
             "wins":    int(wins),

@@ -82,7 +82,9 @@ def _seed_artifacts():
 
 _seed_artifacts()
 
-FREE_PICKS_LIMIT = 2   # picks shown to free-tier / unauthenticated users
+FREE_PICKS_LIMIT   = 2     # picks shown to free-tier / unauthenticated users
+MIN_EDGE_UNDER     = 0.10  # 10% edge required to surface an UNDER pick
+MIN_EDGE_OVER      = 0.15  # 15% edge required to surface an OVER pick (higher bar)
 
 FRONTEND_DIST = Path(__file__).parent / "frontend" / "dist"
 MODEL_VERSION  = "strikeout-xgb-v1"
@@ -287,7 +289,11 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
         except Exception as e:
             print(f"  [warn] {name}: {e}")
 
-    meaningful = [p for p in picks if abs(p["edge_pct"]) >= 0.04]
+    meaningful = [
+        p for p in picks
+        if (p["recommendation"] == "UNDER" and abs(p["edge_pct"]) >= MIN_EDGE_UNDER)
+        or (p["recommendation"] == "OVER"  and abs(p["edge_pct"]) >= MIN_EDGE_OVER)
+    ]
     meaningful.sort(key=lambda p: abs(p["edge_pct"]), reverse=True)
     for i, p in enumerate(meaningful):
         p["rank"] = i + 1
@@ -959,8 +965,12 @@ def log_lines():
             if pred.recommendation == "PASS":
                 skip_reason = f"PASS — {pred.confidence} conf, {abs(pred.edge_pct)*100:.1f}% edge (threshold not met)"
                 print(f"  [log-lines] {name}: skipped — {skip_reason}")
-            elif pred.confidence == "LOW" or abs(pred.edge_pct) < 0.05:
-                skip_reason = f"{pred.confidence} confidence ({abs(pred.edge_pct)*100:.1f}% edge)"
+            elif pred.confidence == "LOW":
+                skip_reason = f"LOW confidence ({abs(pred.edge_pct)*100:.1f}% edge)"
+            elif pred.recommendation == "UNDER" and abs(pred.edge_pct) < MIN_EDGE_UNDER:
+                skip_reason = f"UNDER edge {abs(pred.edge_pct)*100:.1f}% < {MIN_EDGE_UNDER*100:.0f}% threshold"
+            elif pred.recommendation == "OVER" and abs(pred.edge_pct) < MIN_EDGE_OVER:
+                skip_reason = f"OVER edge {abs(pred.edge_pct)*100:.1f}% < {MIN_EDGE_OVER*100:.0f}% threshold"
                 print(f"  [log-lines] {name}: skipped — {skip_reason}")
             else:
                 skip_reason = None
