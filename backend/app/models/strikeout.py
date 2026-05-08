@@ -138,7 +138,7 @@ class StrikeoutModel:
 
         if edge_over >= edge_under:
             recommendation = "OVER" if edge_over >= over_threshold else "PASS"
-        elif edge_under >= 0.15:
+        elif edge_under >= 0.10:
             recommendation = "UNDER"
         else:
             recommendation = "PASS"
