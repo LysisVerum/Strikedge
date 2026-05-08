@@ -311,6 +311,54 @@ export default function PerformancePanel() {
             <PnlCurve data={cumulative_pnl} />
           </motion.div>
 
+          {data?.recent_bets?.length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.4 }}
+              style={{ marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>
+                This Month's Bets
+              </p>
+              <div style={{ borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-secondary)' }}>
+                      {['Date', 'Pitcher', 'Pick', 'Line', 'Actual', 'Result', 'P&L'].map(h => (
+                        <th key={h} style={{ padding: '0.45rem 0.75rem', fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.recent_bets.map((r, i) => {
+                      const win  = r.outcome === 'WIN';
+                      const loss = r.outcome === 'LOSS';
+                      return (
+                        <tr key={i} style={{ borderTop: i > 0 ? '1px solid var(--border)' : 'none', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                          <td style={{ padding: '0.45rem 0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{r.date}</td>
+                          <td style={{ padding: '0.45rem 0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>{r.pitcher_name}</td>
+                          <td style={{ padding: '0.45rem 0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.recommendation} {r.line}</td>
+                          <td style={{ padding: '0.45rem 0.75rem', color: 'var(--text-muted)' }}>{r.line ?? '—'}</td>
+                          <td style={{ padding: '0.45rem 0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>{r.actual_ks ?? '—'}</td>
+                          <td style={{ padding: '0.45rem 0.75rem' }}>
+                            <span style={{
+                              fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+                              background: win ? 'rgba(0,200,83,0.12)' : loss ? 'rgba(239,68,68,0.1)' : 'rgba(139,148,158,0.12)',
+                              color: win ? 'var(--accent-green)' : loss ? '#ef4444' : 'var(--text-muted)',
+                              border: `1px solid ${win ? 'rgba(0,200,83,0.25)' : loss ? 'rgba(239,68,68,0.25)' : 'rgba(139,148,158,0.2)'}`,
+                            }}>
+                              {r.outcome || 'PENDING'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.45rem 0.75rem', fontWeight: 700, color: r.pnl >= 0 ? 'var(--accent-green)' : '#ef4444', whiteSpace: 'nowrap' }}>
+                            {r.pnl >= 0 ? '+' : ''}${Math.abs(r.pnl).toFixed(0)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          )}
+
           <div style={{ padding: '0.75rem 1rem', borderRadius: 8, background: 'rgba(29,155,240,0.06)', border: '1px solid rgba(29,155,240,0.15)', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
             Walk-forward backtest · 2024–2025 seasons · ${bankroll} bankroll · {kelly_frac * 100}% Kelly · HIGH confidence only · real DraftKings/FanDuel lines · live bets appended as they settle.
           </div>

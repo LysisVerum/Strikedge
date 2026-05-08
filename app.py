@@ -709,6 +709,33 @@ def performance():
                 m["roi"] = round(m["pnl"] / m["wagered"] * 100, 1)
         data["monthly"] = sorted(monthly_map.values(), key=lambda x: x["month"])
 
+    # Recent bets for the current month (live first, then backtest fill)
+    current_month = date.today().strftime("%Y-%m")
+    all_records   = data.get("records", [])
+    month_records = [
+        r for r in all_records
+        if (r.get("date") or "")[:7] == current_month and r.get("outcome")
+    ]
+    for r in live_resolved:
+        if (r.get("date") or "")[:7] == current_month:
+            month_records.append(r)
+    month_records.sort(key=lambda r: r.get("date", ""), reverse=True)
+
+    data["recent_bets"] = [
+        {
+            "date":           r.get("date", ""),
+            "pitcher_name":   r.get("pitcher_name", ""),
+            "recommendation": r.get("recommendation") or r.get("rec", ""),
+            "line":           r.get("line"),
+            "actual_ks":      r.get("actual") or r.get("actual_ks"),
+            "outcome":        r.get("outcome", ""),
+            "pnl":            round(r.get("pnl") or 0, 2),
+            "bet":            round(r.get("bet") or 0, 2),
+            "edge_pct":       r.get("edge_pct"),
+        }
+        for r in month_records[:20]
+    ]
+
     return jsonify(data)
 
 
