@@ -50,7 +50,8 @@ def get_pitcher_game_log(mlbam_id: int, season: int) -> list[dict]:
         "season": season,
         "group": "pitching",
     })
-    splits = data.get("stats", [{}])[0].get("splits", [])
+    stats_list = data.get("stats", [])
+    splits = stats_list[0].get("splits", []) if stats_list else []
     rows = []
     for s in splits:
         st = s.get("stat", {})
