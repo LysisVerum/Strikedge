@@ -44,6 +44,7 @@ from backend.app.data.mlb_api import (
     get_team_k_pct,
     get_pitcher_multi_season_log,
     get_team_id_map,
+    search_pitcher,
     _ascii,
 )
 from backend.app.data.statcast_agg import get_pitcher_statcast_range, pitch_mix_features, invalidate_current_month
@@ -186,6 +187,54 @@ def _safe(v, default=None):
         return default if (math.isnan(f) or math.isinf(f)) else f
     except (TypeError, ValueError):
         return default
+
+
+def _augment_from_lines(starters: list[dict], live_lines: dict, season: int) -> list[dict]:
+    """
+    Add pitchers that DraftKings has K props for but that aren't in the MLB API probable starters.
+    DK only lists props for confirmed starters, so this fills the gap when the MLB API lags.
+    Resolves MLBAM IDs via the season leaderboard; uses league-average opponent stats when
+    opponent info isn't available.
+    """
+    if not live_lines:
+        return starters
+
+    # Index existing starters by ASCII last name for fast dedup
+    covered = {_ascii(s["pitcher_name"]).split()[-1] for s in starters}
+
+    added = 0
+    for dk_name in live_lines:
+        dk_last = dk_name.split()[-1]
+        if dk_last in covered:
+            continue
+
+        # Try current season first, then prior season (handles callups mid-season)
+        matches = search_pitcher(dk_name, season) or search_pitcher(dk_name, season - 1)
+        if not matches:
+            print(f"  [augment] {dk_name}: MLBAM ID not found in leaderboard — skipping")
+            continue
+
+        best = matches[0]
+        starters.append({
+            "pitcher_name":  best["full_name"],
+            "mlbam_id":      best["mlbam_id"],
+            "team":          best["team"],
+            "team_id":       None,
+            "opponent_name": "Unknown",
+            "opponent_abbr": "???",
+            "opponent_id":   None,
+            "park_team":     best["team"],
+            "is_home":       True,
+            "game_time":     "",
+            "opp_lineup_ids": [],
+        })
+        covered.add(dk_last)
+        added += 1
+        print(f"  [augment] {best['full_name']} added from DK lines (not in MLB probable API)")
+
+    if added:
+        print(f"[mlbet] Augmented slate: +{added} pitchers from DK lines")
+    return starters
 
 
 def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_lines: dict = None, umpire_map: dict = None) -> list:
@@ -343,10 +392,22 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
     print(f"[mlbet] Fetching today's starters ({game_date})...")
     try:
         starters = get_todays_starters(game_date)
-        print(f"[mlbet] {len(starters)} probable starters found.")
+        print(f"[mlbet] {len(starters)} probable starters found by MLB API.")
     except Exception as e:
         print(f"[mlbet] Could not fetch starters: {e}")
         starters = []
+
+    print("[mlbet] Fetching live strikeout lines...")
+    try:
+        live_lines = get_sp_strikeout_lines(force_refresh=force_odds_refresh)
+        print(f"[mlbet] {len(live_lines)} live lines loaded.")
+    except Exception as e:
+        print(f"[mlbet] Could not fetch live lines: {e} — using model lines")
+        live_lines = {}
+
+    # Fill in starters that DK has lines for but MLB API hasn't announced yet
+    starters = _augment_from_lines(starters, live_lines, season)
+    print(f"[mlbet] {len(starters)} total starters after DK augmentation.")
 
     if not starters:
         print("[mlbet] No starters available — picks list will be empty.")
@@ -361,14 +422,6 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
     except Exception as e:
         print(f"[mlbet] Could not fetch team K%: {e} — using league avg")
         team_k_map = {}
-
-    print("[mlbet] Fetching live strikeout lines...")
-    try:
-        live_lines = get_sp_strikeout_lines(force_refresh=force_odds_refresh)
-        print(f"[mlbet] {len(live_lines)} live lines loaded.")
-    except Exception as e:
-        print(f"[mlbet] Could not fetch live lines: {e} — using model lines")
-        live_lines = {}
 
     print("[mlbet] Fetching today's umpires...")
     try:
