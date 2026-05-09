@@ -95,10 +95,11 @@ app = Flask(__name__, static_folder=None)
 CORS(app)
 
 _store = {
-    "picks":        [],
-    "slate":        [],   # raw starters from MLB API
-    "last_update":  None,
-    "model_loaded": False,
+    "picks":         [],   # edge picks only (OVER>=15% or UNDER>=10%)
+    "all_processed": [],   # every starter that went through the model
+    "slate":         [],   # raw starters (MLB API + DK augmentation)
+    "last_update":   None,
+    "model_loaded":  False,
     "refresh_running": False,
 }
 _refresh_lock = threading.Lock()
@@ -355,7 +356,14 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
     meaningful.sort(key=lambda p: abs(p["edge_pct"]), reverse=True)
     for i, p in enumerate(meaningful):
         p["rank"] = i + 1
-    return meaningful
+
+    # All processed picks sorted by abs(edge), for premium full-slate view
+    picks.sort(key=lambda p: abs(p["edge_pct"]), reverse=True)
+    meaningful_names = {p["pitcher_name"] for p in meaningful}
+    for p in picks:
+        p["actionable"] = p["pitcher_name"] in meaningful_names
+
+    return meaningful, picks
 
 
 def _background_maintenance(interval_seconds=3600):
@@ -442,13 +450,15 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
 
     print("[mlbet] Building feature rows and running model...")
     try:
-        picks = _run_slate(starters, team_k_map, game_date, live_lines, umpire_map)
+        picks, all_processed = _run_slate(starters, team_k_map, game_date, live_lines, umpire_map)
     except Exception as e:
         print(f"[mlbet] _run_slate error: {e}")
         picks = []
+        all_processed = []
 
-    _store["picks"]       = picks
-    _store["slate"]       = starters
+    _store["picks"]         = picks
+    _store["all_processed"] = all_processed
+    _store["slate"]         = starters
     _store["last_update"] = datetime.now().isoformat(timespec="seconds")
     print(f"[mlbet] {len(picks)} picks ready. Updated: {_store['last_update']}")
 
@@ -628,10 +638,12 @@ def today_picks():
     date_str  = date.today().isoformat()
 
     if tier == "premium":
+        # Return full slate: all processed picks (edge + PASS), sorted by abs(edge)
+        premium_picks = _store.get("all_processed") or all_picks
         return jsonify({
             "date":          date_str,
-            "picks":         all_picks,
-            "total_picks":   len(all_picks),
+            "picks":         premium_picks,
+            "total_picks":   len(premium_picks),
             "tier":          "premium",
             "model_version": MODEL_VERSION,
             "last_update":   _store["last_update"],
