@@ -488,6 +488,34 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
         auto_logged = log_predictions(log_entries)
         print(f"[mlbet] {auto_logged} picks auto-logged to bet log.")
 
+    # Auto-log non-edge picks with live lines to skipped (deduped by pitcher+date)
+    actionable_names = {p["pitcher_name"] for p in picks}
+    skipped_live = [p for p in all_processed if p.get("live_line") and p["pitcher_name"] not in actionable_names]
+    if skipped_live:
+        def _skip_reason(p):
+            rec, edge = p["recommendation"], abs(p["edge_pct"])
+            if rec == "PASS":
+                return f"PASS — {p['confidence']} conf, {edge*100:.1f}% edge"
+            if rec == "UNDER":
+                return f"UNDER edge {edge*100:.1f}% < {MIN_EDGE_UNDER*100:.0f}% threshold"
+            return f"OVER edge {edge*100:.1f}% < {MIN_EDGE_OVER*100:.0f}% threshold"
+
+        skip_entries = [{
+            "pitcher_name":    p["pitcher_name"],
+            "mlbam_id":        p.get("mlbam_id", 0),
+            "line":            p["line"],
+            "over_odds":       p["over_odds"],
+            "under_odds":      p.get("under_odds", -p["over_odds"]),
+            "predicted_ks":    p["predicted_ks"],
+            "recommendation":  p["recommendation"],
+            "edge":            round(p["edge_pct"], 4),
+            "confidence":      p["confidence"],
+            "model_prob_over": p["model_prob_over"],
+            "skip_reason":     _skip_reason(p),
+        } for p in skipped_live]
+        auto_skipped = log_skipped(skip_entries)
+        print(f"[mlbet] {auto_skipped} non-edge picks auto-logged to skipped.")
+
 
 
 
@@ -638,12 +666,10 @@ def today_picks():
     date_str  = date.today().isoformat()
 
     if tier == "premium":
-        # Return full slate: all processed picks (edge + PASS), sorted by abs(edge)
-        premium_picks = _store.get("all_processed") or all_picks
         return jsonify({
             "date":          date_str,
-            "picks":         premium_picks,
-            "total_picks":   len(premium_picks),
+            "picks":         all_picks,
+            "total_picks":   len(all_picks),
             "tier":          "premium",
             "model_version": MODEL_VERSION,
             "last_update":   _store["last_update"],

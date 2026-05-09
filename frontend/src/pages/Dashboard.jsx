@@ -256,16 +256,12 @@ export default function Dashboard() {
                 )}
 
                 {!loading && !error && (() => {
-                  const renderPick = (pick, i, dim = false) => pick.locked
+                  const renderPick = (pick, i) => pick.locked
                     ? <LockedPickCard key={pick.pitcher_name} pick={pick} index={i} tokens={tokensRemaining} onUnlocked={handleUnlocked} onUpgrade={handleUpgrade} />
-                    : <div key={pick.pitcher_name} style={{ opacity: dim ? 0.55 : 1 }}><PickCard pick={pick} index={i} /></div>;
+                    : <PickCard       key={pick.pitcher_name} pick={pick} index={i} />;
 
-                  // Premium: split into actionable (edge picks) vs model-only (PASS)
-                  const actionable = isPremium ? picks.filter(p => p.actionable !== false) : picks;
-                  const passive    = isPremium ? picks.filter(p => p.actionable === false)  : [];
-
-                  const lined   = actionable.filter(p => p.has_line !== false);
-                  const noLined = actionable.filter(p => p.has_line === false);
+                  const lined   = picks.filter(p => p.has_line !== false);
+                  const noLined = picks.filter(p => p.has_line === false);
 
                   return (
                     <>
@@ -316,20 +312,6 @@ export default function Dashboard() {
                               </div>
                             )}
                             {noLined.map((pick, i) => renderPick(pick, lined.length + i))}
-                          </>
-                        )}
-
-                        {/* Premium: model predictions with no actionable edge */}
-                        {passive.length > 0 && (
-                          <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.5rem 0 0.1rem' }}>
-                              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
-                                No edge — model predictions only
-                              </span>
-                              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                            </div>
-                            {passive.map((pick, i) => renderPick(pick, actionable.length + i, true))}
                           </>
                         )}
                       </div>
