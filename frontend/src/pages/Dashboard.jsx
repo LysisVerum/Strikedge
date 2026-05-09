@@ -8,14 +8,12 @@ import PickCard from '../components/PickCard';
 import LockedPickCard from '../components/LockedPickCard';
 import PerformancePanel from '../components/PerformancePanel';
 import HistoryLog from '../components/HistoryLog';
-import SkippedLog from '../components/SkippedLog';
 import DashboardNav from '../components/DashboardNav';
 
 const TABS = [
   { id: 'picks',       label: "Today's Picks", icon: TrendingUp },
   { id: 'performance', label: 'Performance',   icon: BarChart2,  premium: true },
   { id: 'history',     label: 'History',       icon: Clock,      premium: true },
-  { id: 'skipped',     label: 'Skipped',       icon: XCircle,    premium: true },
 ];
 
 export default function Dashboard() {
@@ -33,6 +31,10 @@ export default function Dashboard() {
   const [tab, setTab]                   = useState('picks');
   const [refreshRunning, setRefreshRunning] = useState(false);
   const [upgrading, setUpgrading]       = useState(false);
+  const [historyRecords, setHistoryRecords] = useState([]);
+  const [skippedRecords, setSkippedRecords] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyLoaded,  setHistoryLoaded]  = useState(false);
   const [upgraded, setUpgraded]         = useState(searchParams.get('upgrade') === 'success');
 
   const isPremium   = user?.tier === 'premium';
@@ -84,9 +86,27 @@ export default function Dashboard() {
     }
   };
 
+  const fetchHistoryData = async () => {
+    setHistoryLoading(true);
+    try {
+      const [liveRec, skipped] = await Promise.all([api.liveRecord(), api.skipped()]);
+      setHistoryRecords((liveRec.records || []).filter(r => r.bet > 0));
+      setSkippedRecords(Array.isArray(skipped) ? skipped : []);
+      setHistoryLoaded(true);
+    } catch (e) {
+      console.error('History fetch failed:', e);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (user) fetchPicks();
   }, [user]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (tab === 'history' && isPremium && !historyLoaded) fetchHistoryData();
+  }, [tab, isPremium]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // While auth is loading or user isn't set yet, show nothing
   if (authLoading || !user) return null;
@@ -322,8 +342,16 @@ export default function Dashboard() {
             ) : (
               <>
                 {tab === 'performance' && <PerformancePanel />}
-                {tab === 'history'     && <HistoryLog />}
-                {tab === 'skipped'     && <SkippedLog />}
+                {tab === 'history'     && (
+                  <HistoryLog
+                    records={historyRecords}
+                    skippedRecords={skippedRecords}
+                    loading={historyLoading}
+                    onDeleteRecord={(date, name) =>
+                      setHistoryRecords(prev => prev.filter(r => !(r.date === date && r.pitcher_name === name)))
+                    }
+                  />
+                )}
               </>
             )}
           </motion.div>
