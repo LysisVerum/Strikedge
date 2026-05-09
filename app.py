@@ -501,17 +501,19 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
             return f"OVER edge {edge*100:.1f}% < {MIN_EDGE_OVER*100:.0f}% threshold"
 
         skip_entries = [{
-            "pitcher_name":    p["pitcher_name"],
-            "mlbam_id":        p.get("mlbam_id", 0),
-            "line":            p["line"],
-            "over_odds":       p["over_odds"],
-            "under_odds":      p.get("under_odds", -p["over_odds"]),
-            "predicted_ks":    p["predicted_ks"],
-            "recommendation":  p["recommendation"],
-            "edge":            round(p["edge_pct"], 4),
-            "confidence":      p["confidence"],
-            "model_prob_over": p["model_prob_over"],
-            "skip_reason":     _skip_reason(p),
+            "pitcher_name":     p["pitcher_name"],
+            "mlbam_id":         p.get("mlbam_id", 0),
+            "line":             p["line"],
+            "over_odds":        p["over_odds"],
+            "under_odds":       p.get("under_odds", -p["over_odds"]),
+            "predicted_ks":     p["predicted_ks"],
+            "recommendation":   p["recommendation"],
+            "edge":             round(p["edge_pct"], 4),
+            "confidence":       p["confidence"],
+            "model_prob_over":  p["model_prob_over"],
+            "implied_prob_over": p.get("implied_prob_over"),
+            "features":         p.get("features", {}),
+            "skip_reason":      _skip_reason(p),
         } for p in skipped_live]
         auto_skipped = log_skipped(skip_entries)
         print(f"[mlbet] {auto_skipped} non-edge picks auto-logged to skipped.")
