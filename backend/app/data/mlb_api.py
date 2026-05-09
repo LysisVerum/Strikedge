@@ -206,6 +206,45 @@ def get_todays_starters(game_date: str = None) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Team matchup map (all games today, no probable pitcher required)
+# ---------------------------------------------------------------------------
+
+def get_team_matchups_today(game_date: str = None) -> dict[str, dict]:
+    """
+    Returns {team_abbr: {"opponent_id": int, "opponent_abbr": str, "is_home": bool}}
+    for every team with a game today, regardless of whether probable pitchers are set.
+    Used to fill opponent info for DK-augmented starters the MLB API hasn't announced yet.
+    """
+    if game_date is None:
+        game_date = date.today().isoformat()
+
+    data = _get("/schedule", {
+        "sportId":  1,
+        "date":     game_date,
+        "gameType": "R",
+        "hydrate":  "team",
+    })
+
+    result = {}
+    for date_entry in data.get("dates", []):
+        for game in date_entry.get("games", []):
+            for side in ("away", "home"):
+                other     = "home" if side == "away" else "away"
+                team_data = game["teams"][side]
+                opp_data  = game["teams"][other]
+                abbr      = team_data.get("team", {}).get("abbreviation", "")
+                if abbr:
+                    result[abbr] = {
+                        "opponent_id":   opp_data.get("team", {}).get("id"),
+                        "opponent_abbr": opp_data.get("team", {}).get("abbreviation", ""),
+                        "opponent_name": opp_data.get("team", {}).get("name", ""),
+                        "is_home":       side == "home",
+                        "game_time":     game.get("gameDate", ""),
+                    }
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Pitcher lookup by name
 # ---------------------------------------------------------------------------
 

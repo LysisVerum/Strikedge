@@ -41,6 +41,7 @@ from backend.app.models.strikeout import strikeout_model
 from backend.app.models.features import FEATURE_COLS
 from backend.app.data.mlb_api import (
     get_todays_starters,
+    get_team_matchups_today,
     get_team_k_pct,
     get_pitcher_multi_season_log,
     get_team_id_map,
@@ -189,15 +190,21 @@ def _safe(v, default=None):
         return default
 
 
-def _augment_from_lines(starters: list[dict], live_lines: dict, season: int) -> list[dict]:
+def _augment_from_lines(starters: list[dict], live_lines: dict, season: int, game_date: str = None) -> list[dict]:
     """
     Add pitchers that DraftKings has K props for but that aren't in the MLB API probable starters.
     DK only lists props for confirmed starters, so this fills the gap when the MLB API lags.
-    Resolves MLBAM IDs via the season leaderboard; uses league-average opponent stats when
-    opponent info isn't available.
+    Resolves MLBAM IDs via the season leaderboard and fills opponent info from today's schedule.
     """
     if not live_lines:
         return starters
+
+    # Fetch full schedule matchups (all games, regardless of probable pitcher status)
+    try:
+        matchup_map = get_team_matchups_today(game_date)
+    except Exception as e:
+        print(f"  [augment] Could not fetch team matchups: {e} — opponent info will be league avg")
+        matchup_map = {}
 
     # Index existing starters by ASCII last name for fast dedup
     covered = {_ascii(s["pitcher_name"]).split()[-1] for s in starters}
@@ -214,23 +221,25 @@ def _augment_from_lines(starters: list[dict], live_lines: dict, season: int) -> 
             print(f"  [augment] {dk_name}: MLBAM ID not found in leaderboard — skipping")
             continue
 
-        best = matches[0]
+        best    = matches[0]
+        opp     = matchup_map.get(best["team"], {})
         starters.append({
             "pitcher_name":  best["full_name"],
             "mlbam_id":      best["mlbam_id"],
             "team":          best["team"],
             "team_id":       None,
-            "opponent_name": "Unknown",
-            "opponent_abbr": "???",
-            "opponent_id":   None,
-            "park_team":     best["team"],
-            "is_home":       True,
-            "game_time":     "",
+            "opponent_name": opp.get("opponent_name", "Unknown"),
+            "opponent_abbr": opp.get("opponent_abbr", "???"),
+            "opponent_id":   opp.get("opponent_id"),
+            "park_team":     best["team"] if opp.get("is_home") else opp.get("opponent_abbr", best["team"]),
+            "is_home":       opp.get("is_home", True),
+            "game_time":     opp.get("game_time", ""),
             "opp_lineup_ids": [],
         })
         covered.add(dk_last)
         added += 1
-        print(f"  [augment] {best['full_name']} added from DK lines (not in MLB probable API)")
+        opp_label = opp.get("opponent_abbr", "???")
+        print(f"  [augment] {best['full_name']} ({best['team']} vs {opp_label}) added from DK lines")
 
     if added:
         print(f"[mlbet] Augmented slate: +{added} pitchers from DK lines")
@@ -406,7 +415,7 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
         live_lines = {}
 
     # Fill in starters that DK has lines for but MLB API hasn't announced yet
-    starters = _augment_from_lines(starters, live_lines, season)
+    starters = _augment_from_lines(starters, live_lines, season, game_date)
     print(f"[mlbet] {len(starters)} total starters after DK augmentation.")
 
     if not starters:
