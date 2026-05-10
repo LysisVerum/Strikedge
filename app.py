@@ -224,6 +224,9 @@ def _augment_from_lines(starters: list[dict], live_lines: dict, season: int, gam
 
         best    = matches[0]
         opp     = matchup_map.get(best["team"], {})
+        if not opp:
+            print(f"  [augment] {best['full_name']} ({best['team']}): no game today per schedule — stale DK prop, skipping")
+            continue
         starters.append({
             "pitcher_name":  best["full_name"],
             "mlbam_id":      best["mlbam_id"],
