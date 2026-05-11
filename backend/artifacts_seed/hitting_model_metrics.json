@@ -1,0 +1,41 @@
+{
+  "cv_mae": 0.66803,
+  "cv_mae_std": 0.00118,
+  "train_mae": 0.66652,
+  "residual_std": 0.84186,
+  "calibration_slope": 1.04765,
+  "calibration_intercept": -0.03867,
+  "n_samples": 418360,
+  "objective": "count:poisson",
+  "data_source": "real_statcast",
+  "features": [
+    "h_per_pa_last7",
+    "h_per_pa_last14",
+    "h_per_pa_last30",
+    "h_per_pa_season",
+    "barrel_rate_last30",
+    "hard_hit_pct_last30",
+    "xba_last30",
+    "avg_exit_velo_last30",
+    "sweet_spot_pct_last30",
+    "pa_per_game_last14",
+    "h_per_pa_vs_hand_last60",
+    "opp_k_pct",
+    "opp_hard_hit_pct_allowed",
+    "opp_xba_allowed",
+    "park_factor",
+    "is_home"
+  ],
+  "top_features": {
+    "sweet_spot_pct_last30": 0.4382,
+    "h_per_pa_last30": 0.092,
+    "h_per_pa_season": 0.0859,
+    "h_per_pa_vs_hand_last60": 0.0697,
+    "opp_hard_hit_pct_allowed": 0.0554,
+    "pa_per_game_last14": 0.0554,
+    "opp_k_pct": 0.0407,
+    "opp_xba_allowed": 0.0392,
+    "xba_last30": 0.0316,
+    "park_factor": 0.0218
+  }
+}

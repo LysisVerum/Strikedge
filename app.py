@@ -1548,20 +1548,26 @@ HITTING_MODEL_VERSION = "hitting-xgb-v1"
 def hitting_today():
     email    = _current_email()
     tier     = get_tier(email) if email else "free"
-    all_picks = _hitting_store["picks"]
+    edge_picks = _hitting_store["picks"]
+    all_processed = _hitting_store["all_processed"]
     date_str  = date.today().isoformat()
 
     if tier == "premium":
+        # Show all processed batters (edge picks first, then PASS picks)
+        edge_names = {p["batter_name"] for p in edge_picks}
+        pass_picks = [p for p in all_processed if p["batter_name"] not in edge_names]
+        all_picks = edge_picks + pass_picks
         return jsonify({
             "date":          date_str,
             "picks":         all_picks,
-            "total_picks":   len(all_picks),
+            "total_picks":   len(edge_picks),
             "tier":          "premium",
             "model_version": HITTING_MODEL_VERSION,
             "last_update":   _hitting_store["last_update"],
         })
 
-    # Free tier — show top 2, lock the rest
+    # Free tier — show top 2 edge picks, lock the rest
+    all_picks = edge_picks
     unlocked   = get_unlocked_today(email, date_str) if email else []
     token_info = get_token_info(email) if email else {"tokens_remaining": 0, "tokens_reset_at": None}
 

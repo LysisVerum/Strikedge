@@ -444,40 +444,59 @@ export default function Dashboard() {
                       )}
                       {!hLoading && !hError && (
                         <>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                            {hPicks.filter(p => !p.locked).map((pick, i) => (
-                              <HittingPickCard key={pick.batter_name} pick={pick} index={i} />
-                            ))}
-                            {hPicks.filter(p => p.locked).length > 0 && (
-                              <>
-                                {hPicks.filter(p => !p.locked).length > 0 && (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.4rem 0' }}>
-                                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>Locked picks</span>
-                                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                          {(() => {
+                            const edgePicks   = hPicks.filter(p => !p.locked && p.recommendation !== 'PASS');
+                            const passPicks   = hPicks.filter(p => !p.locked && p.recommendation === 'PASS');
+                            const lockedPicks = hPicks.filter(p => p.locked);
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                                {edgePicks.map((pick, i) => (
+                                  <HittingPickCard key={pick.batter_name} pick={pick} index={i} />
+                                ))}
+                                {passPicks.length > 0 && (
+                                  <>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.4rem 0' }}>
+                                      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>No edge — model output only</span>
+                                      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                                    </div>
+                                    {passPicks.map((pick, i) => (
+                                      <div key={pick.batter_name} style={{ opacity: 0.55 }}>
+                                        <HittingPickCard pick={pick} index={edgePicks.length + i} />
+                                      </div>
+                                    ))}
+                                  </>
+                                )}
+                                {lockedPicks.length > 0 && (
+                                  <>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.4rem 0' }}>
+                                      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>Locked picks</span>
+                                      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                                    </div>
+                                    {lockedPicks.map((pick, i) => (
+                                      <div key={pick.batter_name} style={{ padding: '1rem 1.5rem', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg-card)', opacity: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <span style={{ fontWeight: 600 }}>{pick.batter_name}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                          <Lock size={13} style={{ color: H_ACCENT }} />
+                                          <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} onClick={handleUpgrade}
+                                            style={{ padding: '0.25rem 0.65rem', borderRadius: 6, border: `1px solid ${H_ACCENT_BORDER}`, background: H_ACCENT_BG, color: H_ACCENT, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                                            Upgrade
+                                          </motion.button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </>
+                                )}
+                                {hPicks.length === 0 && (
+                                  <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+                                    <Flame size={32} style={{ marginBottom: '0.75rem', opacity: 0.3, color: H_ACCENT }} />
+                                    <p>No hitting data yet — check back after lineups are posted.</p>
                                   </div>
                                 )}
-                                {hPicks.filter(p => p.locked).map((pick, i) => (
-                                  <div key={pick.batter_name} style={{ padding: '1rem 1.5rem', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg-card)', opacity: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <span style={{ fontWeight: 600 }}>{pick.batter_name}</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                      <Lock size={13} style={{ color: H_ACCENT }} />
-                                      <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} onClick={handleUpgrade}
-                                        style={{ padding: '0.25rem 0.65rem', borderRadius: 6, border: `1px solid ${H_ACCENT_BORDER}`, background: H_ACCENT_BG, color: H_ACCENT, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
-                                        Upgrade
-                                      </motion.button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </>
-                            )}
-                          </div>
-                          {hPicks.length === 0 && (
-                            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
-                              <Flame size={32} style={{ marginBottom: '0.75rem', opacity: 0.3, color: H_ACCENT }} />
-                              <p>No hitting picks with sufficient edge today.</p>
-                            </div>
-                          )}
+                              </div>
+                            );
+                          })()}
                         </>
                       )}
                     </>
