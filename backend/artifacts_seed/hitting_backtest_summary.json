@@ -1,1 +1,3936 @@
-{"generated_at": "2026-05-10T18:19:18.597420", "test_rows": 51234, "line": 1.5, "overall": {"mae": 0.67523, "rmse": 0.85056, "n": 51234}, "error_distribution": {"within_0.25": 0.2799, "within_0.50": 0.4015, "within_1.00": 0.7866, "over_1.00": 0.2134}, "by_season": {"2025": {"mae": 0.6752, "n": 51234}}, "by_month": [{"month": "2025-03", "mae": 0.6581, "n": 3858}, {"month": "2025-04", "mae": 0.6774, "n": 7600}, {"month": "2025-05", "mae": 0.6836, "n": 8030}, {"month": "2025-06", "mae": 0.6791, "n": 7803}, {"month": "2025-07", "mae": 0.6654, "n": 7268}, {"month": "2025-08", "mae": 0.6859, "n": 8321}, {"month": "2025-09", "mae": 0.6683, "n": 7505}, {"month": "2025-10", "mae": 0.6604, "n": 849}], "by_confidence": {"HIGH": {"n": 49749, "win_rate": 0.8059, "mae": 0.6717}, "MEDIUM": {"n": 1351, "win_rate": 0.6921, "mae": 0.7886}}, "by_line": {"0.5": {"actual_over_rate": 0.574, "model_prob_over": 0.5173}, "1.5": {"actual_over_rate": 0.1976, "model_prob_over": 0.176}, "2.5": {"actual_over_rate": 0.043, "model_prob_over": 0.0449}}}
+{
+  "generated_at": "2026-05-10T18:19:18.597420",
+  "test_rows": 51234,
+  "line": 1.5,
+  "overall": {
+    "mae": 0.67523,
+    "rmse": 0.85056,
+    "n": 51234
+  },
+  "error_distribution": {
+    "within_0.25": 0.2799,
+    "within_0.50": 0.4015,
+    "within_1.00": 0.7866,
+    "over_1.00": 0.2134
+  },
+  "by_season": {
+    "2025": {
+      "mae": 0.6752,
+      "n": 51234
+    }
+  },
+  "by_month": [
+    {
+      "month": "2025-03",
+      "mae": 0.6581,
+      "n": 3858
+    },
+    {
+      "month": "2025-04",
+      "mae": 0.6774,
+      "n": 7600
+    },
+    {
+      "month": "2025-05",
+      "mae": 0.6836,
+      "n": 8030
+    },
+    {
+      "month": "2025-06",
+      "mae": 0.6791,
+      "n": 7803
+    },
+    {
+      "month": "2025-07",
+      "mae": 0.6654,
+      "n": 7268
+    },
+    {
+      "month": "2025-08",
+      "mae": 0.6859,
+      "n": 8321
+    },
+    {
+      "month": "2025-09",
+      "mae": 0.6683,
+      "n": 7505
+    },
+    {
+      "month": "2025-10",
+      "mae": 0.6604,
+      "n": 849
+    }
+  ],
+  "by_confidence": {
+    "HIGH": {
+      "n": 49749,
+      "win_rate": 0.8059,
+      "mae": 0.6717
+    },
+    "MEDIUM": {
+      "n": 1351,
+      "win_rate": 0.6921,
+      "mae": 0.7886
+    }
+  },
+  "by_batter": [
+    {
+      "batter_id": 690291,
+      "games": 20,
+      "pred": 10.5,
+      "actual": 5.0,
+      "pctErr": 109.6
+    },
+    {
+      "batter_id": 660844,
+      "games": 52,
+      "pred": 28.7,
+      "actual": 27.0,
+      "pctErr": 6.4
+    },
+    {
+      "batter_id": 650559,
+      "games": 24,
+      "pred": 16.4,
+      "actual": 14.0,
+      "pctErr": 17.4
+    },
+    {
+      "batter_id": 663697,
+      "games": 143,
+      "pred": 133.5,
+      "actual": 126.0,
+      "pctErr": 6.0
+    },
+    {
+      "batter_id": 669065,
+      "games": 123,
+      "pred": 108.4,
+      "actual": 118.0,
+      "pctErr": 8.1
+    },
+    {
+      "batter_id": 664040,
+      "games": 141,
+      "pred": 131.1,
+      "actual": 134.0,
+      "pctErr": 2.1
+    },
+    {
+      "batter_id": 663743,
+      "games": 91,
+      "pred": 55.7,
+      "actual": 53.0,
+      "pctErr": 5.1
+    },
+    {
+      "batter_id": 642851,
+      "games": 41,
+      "pred": 31.0,
+      "actual": 33.0,
+      "pctErr": 6.2
+    },
+    {
+      "batter_id": 666176,
+      "games": 157,
+      "pred": 129.5,
+      "actual": 129.0,
+      "pctErr": 0.4
+    },
+    {
+      "batter_id": 694362,
+      "games": 34,
+      "pred": 20.3,
+      "actual": 17.0,
+      "pctErr": 19.6
+    },
+    {
+      "batter_id": 595978,
+      "games": 67,
+      "pred": 33.2,
+      "actual": 28.0,
+      "pctErr": 18.4
+    },
+    {
+      "batter_id": 592663,
+      "games": 144,
+      "pred": 134.4,
+      "actual": 137.0,
+      "pctErr": 1.9
+    },
+    {
+      "batter_id": 665750,
+      "games": 60,
+      "pred": 40.3,
+      "actual": 36.0,
+      "pctErr": 11.9
+    },
+    {
+      "batter_id": 686469,
+      "games": 165,
+      "pred": 160.2,
+      "actual": 165.0,
+      "pctErr": 2.9
+    },
+    {
+      "batter_id": 672356,
+      "games": 137,
+      "pred": 108.7,
+      "actual": 102.0,
+      "pctErr": 6.6
+    },
+    {
+      "batter_id": 642086,
+      "games": 67,
+      "pred": 53.3,
+      "actual": 61.0,
+      "pctErr": 12.6
+    },
+    {
+      "batter_id": 691016,
+      "games": 165,
+      "pred": 154.3,
+      "actual": 162.0,
+      "pctErr": 4.8
+    },
+    {
+      "batter_id": 683770,
+      "games": 28,
+      "pred": 13.4,
+      "actual": 11.0,
+      "pctErr": 22.0
+    },
+    {
+      "batter_id": 700932,
+      "games": 152,
+      "pred": 117.0,
+      "actual": 115.0,
+      "pctErr": 1.7
+    },
+    {
+      "batter_id": 606115,
+      "games": 72,
+      "pred": 50.6,
+      "actual": 44.0,
+      "pctErr": 14.9
+    },
+    {
+      "batter_id": 686681,
+      "games": 82,
+      "pred": 67.8,
+      "actual": 73.0,
+      "pctErr": 7.1
+    },
+    {
+      "batter_id": 682657,
+      "games": 140,
+      "pred": 106.5,
+      "actual": 104.0,
+      "pctErr": 2.4
+    },
+    {
+      "batter_id": 592206,
+      "games": 157,
+      "pred": 147.3,
+      "actual": 142.0,
+      "pctErr": 3.7
+    },
+    {
+      "batter_id": 676475,
+      "games": 144,
+      "pred": 137.0,
+      "actual": 149.0,
+      "pctErr": 8.1
+    },
+    {
+      "batter_id": 680776,
+      "games": 167,
+      "pred": 166.7,
+      "actual": 164.0,
+      "pctErr": 1.7
+    },
+    {
+      "batter_id": 670242,
+      "games": 109,
+      "pred": 87.7,
+      "actual": 70.0,
+      "pctErr": 25.3
+    },
+    {
+      "batter_id": 663993,
+      "games": 161,
+      "pred": 142.1,
+      "actual": 128.0,
+      "pctErr": 11.0
+    },
+    {
+      "batter_id": 642708,
+      "games": 68,
+      "pred": 47.9,
+      "actual": 54.0,
+      "pctErr": 11.3
+    },
+    {
+      "batter_id": 457705,
+      "games": 141,
+      "pred": 120.6,
+      "actual": 115.0,
+      "pctErr": 4.9
+    },
+    {
+      "batter_id": 670092,
+      "games": 29,
+      "pred": 13.6,
+      "actual": 11.0,
+      "pctErr": 23.5
+    },
+    {
+      "batter_id": 670156,
+      "games": 83,
+      "pred": 45.8,
+      "actual": 46.0,
+      "pctErr": 0.4
+    },
+    {
+      "batter_id": 663616,
+      "games": 147,
+      "pred": 137.0,
+      "actual": 132.0,
+      "pctErr": 3.8
+    },
+    {
+      "batter_id": 691026,
+      "games": 132,
+      "pred": 125.9,
+      "actual": 125.0,
+      "pctErr": 0.7
+    },
+    {
+      "batter_id": 677588,
+      "games": 55,
+      "pred": 45.4,
+      "actual": 41.0,
+      "pctErr": 10.6
+    },
+    {
+      "batter_id": 650490,
+      "games": 156,
+      "pred": 158.2,
+      "actual": 178.0,
+      "pctErr": 11.1
+    },
+    {
+      "batter_id": 691781,
+      "games": 75,
+      "pred": 60.3,
+      "actual": 62.0,
+      "pctErr": 2.7
+    },
+    {
+      "batter_id": 669003,
+      "games": 30,
+      "pred": 20.2,
+      "actual": 17.0,
+      "pctErr": 18.8
+    },
+    {
+      "batter_id": 660688,
+      "games": 74,
+      "pred": 70.3,
+      "actual": 69.0,
+      "pctErr": 1.9
+    },
+    {
+      "batter_id": 672761,
+      "games": 108,
+      "pred": 94.0,
+      "actual": 88.0,
+      "pctErr": 6.8
+    },
+    {
+      "batter_id": 521692,
+      "games": 163,
+      "pred": 157.2,
+      "actual": 152.0,
+      "pctErr": 3.4
+    },
+    {
+      "batter_id": 669289,
+      "games": 110,
+      "pred": 79.8,
+      "actual": 75.0,
+      "pctErr": 6.4
+    },
+    {
+      "batter_id": 655316,
+      "games": 54,
+      "pred": 35.1,
+      "actual": 40.0,
+      "pctErr": 12.4
+    },
+    {
+      "batter_id": 656555,
+      "games": 97,
+      "pred": 77.1,
+      "actual": 70.0,
+      "pctErr": 10.1
+    },
+    {
+      "batter_id": 669304,
+      "games": 20,
+      "pred": 12.8,
+      "actual": 8.0,
+      "pctErr": 60.6
+    },
+    {
+      "batter_id": 467793,
+      "games": 128,
+      "pred": 106.5,
+      "actual": 95.0,
+      "pctErr": 12.1
+    },
+    {
+      "batter_id": 686217,
+      "games": 154,
+      "pred": 147.8,
+      "actual": 162.0,
+      "pctErr": 8.8
+    },
+    {
+      "batter_id": 681460,
+      "games": 108,
+      "pred": 78.5,
+      "actual": 76.0,
+      "pctErr": 3.3
+    },
+    {
+      "batter_id": 696100,
+      "games": 150,
+      "pred": 154.4,
+      "actual": 160.0,
+      "pctErr": 3.5
+    },
+    {
+      "batter_id": 656484,
+      "games": 37,
+      "pred": 21.3,
+      "actual": 23.0,
+      "pctErr": 7.6
+    },
+    {
+      "batter_id": 676070,
+      "games": 34,
+      "pred": 19.0,
+      "actual": 10.0,
+      "pctErr": 89.7
+    },
+    {
+      "batter_id": 608701,
+      "games": 78,
+      "pred": 54.3,
+      "actual": 52.0,
+      "pctErr": 4.5
+    },
+    {
+      "batter_id": 592192,
+      "games": 52,
+      "pred": 31.6,
+      "actual": 29.0,
+      "pctErr": 9.1
+    },
+    {
+      "batter_id": 689172,
+      "games": 29,
+      "pred": 16.6,
+      "actual": 14.0,
+      "pctErr": 18.6
+    },
+    {
+      "batter_id": 572191,
+      "games": 117,
+      "pred": 72.8,
+      "actual": 64.0,
+      "pctErr": 13.8
+    },
+    {
+      "batter_id": 700250,
+      "games": 151,
+      "pred": 125.2,
+      "actual": 131.0,
+      "pctErr": 4.5
+    },
+    {
+      "batter_id": 657041,
+      "games": 44,
+      "pred": 33.6,
+      "actual": 24.0,
+      "pctErr": 39.9
+    },
+    {
+      "batter_id": 665828,
+      "games": 42,
+      "pred": 32.2,
+      "actual": 33.0,
+      "pctErr": 2.5
+    },
+    {
+      "batter_id": 682829,
+      "games": 170,
+      "pred": 171.2,
+      "actual": 171.0,
+      "pctErr": 0.1
+    },
+    {
+      "batter_id": 669224,
+      "games": 133,
+      "pred": 102.6,
+      "actual": 100.0,
+      "pctErr": 2.6
+    },
+    {
+      "batter_id": 676679,
+      "games": 25,
+      "pred": 12.8,
+      "actual": 14.0,
+      "pctErr": 8.8
+    },
+    {
+      "batter_id": 642180,
+      "games": 55,
+      "pred": 28.9,
+      "actual": 26.0,
+      "pctErr": 11.0
+    },
+    {
+      "batter_id": 668670,
+      "games": 52,
+      "pred": 33.0,
+      "actual": 27.0,
+      "pctErr": 22.2
+    },
+    {
+      "batter_id": 691176,
+      "games": 125,
+      "pred": 104.1,
+      "actual": 107.0,
+      "pctErr": 2.7
+    },
+    {
+      "batter_id": 547180,
+      "games": 142,
+      "pred": 137.8,
+      "actual": 137.0,
+      "pctErr": 0.6
+    },
+    {
+      "batter_id": 666464,
+      "games": 23,
+      "pred": 17.3,
+      "actual": 15.0,
+      "pctErr": 15.3
+    },
+    {
+      "batter_id": 680869,
+      "games": 30,
+      "pred": 23.4,
+      "actual": 18.0,
+      "pctErr": 30.2
+    },
+    {
+      "batter_id": 664770,
+      "games": 150,
+      "pred": 117.5,
+      "actual": 120.0,
+      "pctErr": 2.1
+    },
+    {
+      "batter_id": 609280,
+      "games": 102,
+      "pred": 87.8,
+      "actual": 105.0,
+      "pctErr": 16.4
+    },
+    {
+      "batter_id": 592885,
+      "games": 165,
+      "pred": 156.6,
+      "actual": 164.0,
+      "pctErr": 4.5
+    },
+    {
+      "batter_id": 695238,
+      "games": 62,
+      "pred": 41.4,
+      "actual": 32.0,
+      "pctErr": 29.3
+    },
+    {
+      "batter_id": 665833,
+      "games": 138,
+      "pred": 116.2,
+      "actual": 96.0,
+      "pctErr": 21.0
+    },
+    {
+      "batter_id": 664056,
+      "games": 146,
+      "pred": 115.6,
+      "actual": 127.0,
+      "pctErr": 9.0
+    },
+    {
+      "batter_id": 669004,
+      "games": 26,
+      "pred": 16.5,
+      "actual": 8.0,
+      "pctErr": 105.8
+    },
+    {
+      "batter_id": 545121,
+      "games": 43,
+      "pred": 32.8,
+      "actual": 40.0,
+      "pctErr": 17.9
+    },
+    {
+      "batter_id": 657656,
+      "games": 135,
+      "pred": 118.3,
+      "actual": 126.0,
+      "pctErr": 6.1
+    },
+    {
+      "batter_id": 661388,
+      "games": 164,
+      "pred": 156.4,
+      "actual": 163.0,
+      "pctErr": 4.0
+    },
+    {
+      "batter_id": 693304,
+      "games": 101,
+      "pred": 100.2,
+      "actual": 102.0,
+      "pctErr": 1.7
+    },
+    {
+      "batter_id": 570482,
+      "games": 62,
+      "pred": 46.5,
+      "actual": 48.0,
+      "pctErr": 3.0
+    },
+    {
+      "batter_id": 671083,
+      "games": 20,
+      "pred": 9.2,
+      "actual": 4.0,
+      "pctErr": 130.5
+    },
+    {
+      "batter_id": 608369,
+      "games": 107,
+      "pred": 103.5,
+      "actual": 108.0,
+      "pctErr": 4.1
+    },
+    {
+      "batter_id": 676609,
+      "games": 118,
+      "pred": 82.8,
+      "actual": 80.0,
+      "pctErr": 3.6
+    },
+    {
+      "batter_id": 605137,
+      "games": 147,
+      "pred": 117.3,
+      "actual": 112.0,
+      "pctErr": 4.7
+    },
+    {
+      "batter_id": 624413,
+      "games": 171,
+      "pred": 168.8,
+      "actual": 176.0,
+      "pctErr": 4.1
+    },
+    {
+      "batter_id": 650402,
+      "games": 160,
+      "pred": 152.7,
+      "actual": 147.0,
+      "pctErr": 3.9
+    },
+    {
+      "batter_id": 545341,
+      "games": 118,
+      "pred": 72.7,
+      "actual": 66.0,
+      "pctErr": 10.1
+    },
+    {
+      "batter_id": 681351,
+      "games": 125,
+      "pred": 102.3,
+      "actual": 92.0,
+      "pctErr": 11.2
+    },
+    {
+      "batter_id": 680718,
+      "games": 154,
+      "pred": 131.0,
+      "actual": 135.0,
+      "pctErr": 3.0
+    },
+    {
+      "batter_id": 669261,
+      "games": 60,
+      "pred": 38.9,
+      "actual": 29.0,
+      "pctErr": 34.2
+    },
+    {
+      "batter_id": 656976,
+      "games": 95,
+      "pred": 75.4,
+      "actual": 70.0,
+      "pctErr": 7.7
+    },
+    {
+      "batter_id": 642201,
+      "games": 99,
+      "pred": 68.6,
+      "actual": 64.0,
+      "pctErr": 7.3
+    },
+    {
+      "batter_id": 640902,
+      "games": 33,
+      "pred": 20.8,
+      "actual": 18.0,
+      "pctErr": 15.4
+    },
+    {
+      "batter_id": 664983,
+      "games": 72,
+      "pred": 52.0,
+      "actual": 47.0,
+      "pctErr": 10.6
+    },
+    {
+      "batter_id": 663457,
+      "games": 138,
+      "pred": 130.3,
+      "actual": 123.0,
+      "pctErr": 6.0
+    },
+    {
+      "batter_id": 687597,
+      "games": 156,
+      "pred": 149.3,
+      "actual": 146.0,
+      "pctErr": 2.3
+    },
+    {
+      "batter_id": 687952,
+      "games": 44,
+      "pred": 35.3,
+      "actual": 32.0,
+      "pctErr": 10.2
+    },
+    {
+      "batter_id": 669397,
+      "games": 139,
+      "pred": 95.7,
+      "actual": 88.0,
+      "pctErr": 8.7
+    },
+    {
+      "batter_id": 657557,
+      "games": 61,
+      "pred": 48.8,
+      "actual": 47.0,
+      "pctErr": 3.8
+    },
+    {
+      "batter_id": 624428,
+      "games": 141,
+      "pred": 100.2,
+      "actual": 114.0,
+      "pctErr": 12.1
+    },
+    {
+      "batter_id": 645277,
+      "games": 165,
+      "pred": 150.4,
+      "actual": 151.0,
+      "pctErr": 0.4
+    },
+    {
+      "batter_id": 686668,
+      "games": 146,
+      "pred": 131.9,
+      "actual": 121.0,
+      "pctErr": 9.0
+    },
+    {
+      "batter_id": 645444,
+      "games": 62,
+      "pred": 42.8,
+      "actual": 35.0,
+      "pctErr": 22.4
+    },
+    {
+      "batter_id": 663647,
+      "games": 156,
+      "pred": 134.3,
+      "actual": 127.0,
+      "pctErr": 5.8
+    },
+    {
+      "batter_id": 805779,
+      "games": 131,
+      "pred": 131.1,
+      "actual": 159.0,
+      "pctErr": 17.6
+    },
+    {
+      "batter_id": 691023,
+      "games": 110,
+      "pred": 93.7,
+      "actual": 81.0,
+      "pctErr": 15.7
+    },
+    {
+      "batter_id": 641584,
+      "games": 78,
+      "pred": 51.5,
+      "actual": 49.0,
+      "pctErr": 5.0
+    },
+    {
+      "batter_id": 624585,
+      "games": 89,
+      "pred": 72.7,
+      "actual": 64.0,
+      "pctErr": 13.6
+    },
+    {
+      "batter_id": 671732,
+      "games": 155,
+      "pred": 145.6,
+      "actual": 140.0,
+      "pctErr": 4.0
+    },
+    {
+      "batter_id": 666624,
+      "games": 107,
+      "pred": 71.8,
+      "actual": 68.0,
+      "pctErr": 5.6
+    },
+    {
+      "batter_id": 663604,
+      "games": 60,
+      "pred": 36.3,
+      "actual": 37.0,
+      "pctErr": 1.8
+    },
+    {
+      "batter_id": 671213,
+      "games": 36,
+      "pred": 29.8,
+      "actual": 24.0,
+      "pctErr": 24.1
+    },
+    {
+      "batter_id": 641658,
+      "games": 48,
+      "pred": 26.6,
+      "actual": 17.0,
+      "pctErr": 56.6
+    },
+    {
+      "batter_id": 456781,
+      "games": 72,
+      "pred": 43.4,
+      "actual": 48.0,
+      "pctErr": 9.5
+    },
+    {
+      "batter_id": 647351,
+      "games": 82,
+      "pred": 66.1,
+      "actual": 65.0,
+      "pctErr": 1.7
+    },
+    {
+      "batter_id": 669720,
+      "games": 110,
+      "pred": 103.9,
+      "actual": 107.0,
+      "pctErr": 2.9
+    },
+    {
+      "batter_id": 694388,
+      "games": 43,
+      "pred": 29.5,
+      "actual": 34.0,
+      "pctErr": 13.1
+    },
+    {
+      "batter_id": 672284,
+      "games": 30,
+      "pred": 19.0,
+      "actual": 15.0,
+      "pctErr": 26.6
+    },
+    {
+      "batter_id": 679845,
+      "games": 70,
+      "pred": 43.8,
+      "actual": 38.0,
+      "pctErr": 15.3
+    },
+    {
+      "batter_id": 666018,
+      "games": 112,
+      "pred": 105.4,
+      "actual": 123.0,
+      "pctErr": 14.3
+    },
+    {
+      "batter_id": 641598,
+      "games": 100,
+      "pred": 67.7,
+      "actual": 59.0,
+      "pctErr": 14.8
+    },
+    {
+      "batter_id": 621438,
+      "games": 106,
+      "pred": 76.1,
+      "actual": 75.0,
+      "pctErr": 1.5
+    },
+    {
+      "batter_id": 608070,
+      "games": 166,
+      "pred": 164.3,
+      "actual": 175.0,
+      "pctErr": 6.1
+    },
+    {
+      "batter_id": 575929,
+      "games": 141,
+      "pred": 132.7,
+      "actual": 133.0,
+      "pctErr": 0.2
+    },
+    {
+      "batter_id": 686765,
+      "games": 39,
+      "pred": 28.0,
+      "actual": 30.0,
+      "pctErr": 6.6
+    },
+    {
+      "batter_id": 642731,
+      "games": 41,
+      "pred": 40.6,
+      "actual": 39.0,
+      "pctErr": 4.2
+    },
+    {
+      "batter_id": 664728,
+      "games": 131,
+      "pred": 97.6,
+      "actual": 97.0,
+      "pctErr": 0.6
+    },
+    {
+      "batter_id": 663586,
+      "games": 110,
+      "pred": 112.5,
+      "actual": 112.0,
+      "pctErr": 0.4
+    },
+    {
+      "batter_id": 694384,
+      "games": 140,
+      "pred": 129.9,
+      "actual": 134.0,
+      "pctErr": 3.1
+    },
+    {
+      "batter_id": 681082,
+      "games": 157,
+      "pred": 134.7,
+      "actual": 134.0,
+      "pctErr": 0.6
+    },
+    {
+      "batter_id": 668709,
+      "games": 103,
+      "pred": 77.9,
+      "actual": 71.0,
+      "pctErr": 9.8
+    },
+    {
+      "batter_id": 663897,
+      "games": 23,
+      "pred": 10.2,
+      "actual": 7.0,
+      "pctErr": 45.9
+    },
+    {
+      "batter_id": 680700,
+      "games": 20,
+      "pred": 12.5,
+      "actual": 16.0,
+      "pctErr": 21.6
+    },
+    {
+      "batter_id": 669477,
+      "games": 97,
+      "pred": 80.1,
+      "actual": 75.0,
+      "pctErr": 6.8
+    },
+    {
+      "batter_id": 606466,
+      "games": 133,
+      "pred": 138.5,
+      "actual": 145.0,
+      "pctErr": 4.5
+    },
+    {
+      "batter_id": 671739,
+      "games": 167,
+      "pred": 158.1,
+      "actual": 162.0,
+      "pctErr": 2.4
+    },
+    {
+      "batter_id": 678554,
+      "games": 93,
+      "pred": 60.1,
+      "actual": 59.0,
+      "pctErr": 1.8
+    },
+    {
+      "batter_id": 669127,
+      "games": 130,
+      "pred": 122.1,
+      "actual": 137.0,
+      "pctErr": 10.9
+    },
+    {
+      "batter_id": 545361,
+      "games": 138,
+      "pred": 118.6,
+      "actual": 112.0,
+      "pctErr": 5.9
+    },
+    {
+      "batter_id": 600869,
+      "games": 27,
+      "pred": 21.1,
+      "actual": 13.0,
+      "pctErr": 62.4
+    },
+    {
+      "batter_id": 680977,
+      "games": 125,
+      "pred": 130.1,
+      "actual": 139.0,
+      "pctErr": 6.4
+    },
+    {
+      "batter_id": 606992,
+      "games": 30,
+      "pred": 20.0,
+      "actual": 17.0,
+      "pctErr": 17.5
+    },
+    {
+      "batter_id": 553993,
+      "games": 178,
+      "pred": 158.1,
+      "actual": 147.0,
+      "pctErr": 7.6
+    },
+    {
+      "batter_id": 621493,
+      "games": 165,
+      "pred": 146.7,
+      "actual": 139.0,
+      "pctErr": 5.6
+    },
+    {
+      "batter_id": 621566,
+      "games": 170,
+      "pred": 164.8,
+      "actual": 173.0,
+      "pctErr": 4.7
+    },
+    {
+      "batter_id": 666971,
+      "games": 136,
+      "pred": 135.6,
+      "actual": 134.0,
+      "pctErr": 1.2
+    },
+    {
+      "batter_id": 666134,
+      "games": 134,
+      "pred": 90.4,
+      "actual": 77.0,
+      "pctErr": 17.5
+    },
+    {
+      "batter_id": 571448,
+      "games": 111,
+      "pred": 104.7,
+      "actual": 99.0,
+      "pctErr": 5.7
+    },
+    {
+      "batter_id": 669394,
+      "games": 111,
+      "pred": 90.1,
+      "actual": 90.0,
+      "pctErr": 0.1
+    },
+    {
+      "batter_id": 656413,
+      "games": 29,
+      "pred": 10.9,
+      "actual": 12.0,
+      "pctErr": 9.2
+    },
+    {
+      "batter_id": 666158,
+      "games": 147,
+      "pred": 122.9,
+      "actual": 129.0,
+      "pctErr": 4.7
+    },
+    {
+      "batter_id": 676914,
+      "games": 92,
+      "pred": 54.8,
+      "actual": 51.0,
+      "pctErr": 7.4
+    },
+    {
+      "batter_id": 542303,
+      "games": 152,
+      "pred": 132.0,
+      "actual": 118.0,
+      "pctErr": 11.9
+    },
+    {
+      "batter_id": 686780,
+      "games": 112,
+      "pred": 91.3,
+      "actual": 87.0,
+      "pctErr": 4.9
+    },
+    {
+      "batter_id": 671221,
+      "games": 72,
+      "pred": 51.8,
+      "actual": 52.0,
+      "pctErr": 0.5
+    },
+    {
+      "batter_id": 677347,
+      "games": 52,
+      "pred": 33.3,
+      "actual": 33.0,
+      "pctErr": 0.8
+    },
+    {
+      "batter_id": 571657,
+      "games": 104,
+      "pred": 75.9,
+      "actual": 68.0,
+      "pctErr": 11.6
+    },
+    {
+      "batter_id": 686527,
+      "games": 98,
+      "pred": 73.0,
+      "actual": 80.0,
+      "pctErr": 8.8
+    },
+    {
+      "batter_id": 680779,
+      "games": 86,
+      "pred": 55.8,
+      "actual": 45.0,
+      "pctErr": 24.0
+    },
+    {
+      "batter_id": 676391,
+      "games": 171,
+      "pred": 157.6,
+      "actual": 183.0,
+      "pctErr": 13.9
+    },
+    {
+      "batter_id": 694497,
+      "games": 66,
+      "pred": 46.5,
+      "actual": 48.0,
+      "pctErr": 3.1
+    },
+    {
+      "batter_id": 647304,
+      "games": 165,
+      "pred": 163.4,
+      "actual": 180.0,
+      "pctErr": 9.2
+    },
+    {
+      "batter_id": 672695,
+      "games": 168,
+      "pred": 162.5,
+      "actual": 176.0,
+      "pctErr": 7.7
+    },
+    {
+      "batter_id": 686797,
+      "games": 139,
+      "pred": 121.3,
+      "actual": 116.0,
+      "pctErr": 4.6
+    },
+    {
+      "batter_id": 663898,
+      "games": 43,
+      "pred": 32.7,
+      "actual": 24.0,
+      "pctErr": 36.2
+    },
+    {
+      "batter_id": 686894,
+      "games": 25,
+      "pred": 15.9,
+      "actual": 17.0,
+      "pctErr": 6.5
+    },
+    {
+      "batter_id": 656941,
+      "games": 173,
+      "pred": 168.4,
+      "actual": 153.0,
+      "pctErr": 10.1
+    },
+    {
+      "batter_id": 665161,
+      "games": 131,
+      "pred": 135.9,
+      "actual": 160.0,
+      "pctErr": 15.1
+    },
+    {
+      "batter_id": 695336,
+      "games": 83,
+      "pred": 69.0,
+      "actual": 72.0,
+      "pctErr": 4.1
+    },
+    {
+      "batter_id": 578428,
+      "games": 118,
+      "pred": 80.3,
+      "actual": 73.0,
+      "pctErr": 10.1
+    },
+    {
+      "batter_id": 686676,
+      "games": 20,
+      "pred": 13.5,
+      "actual": 14.0,
+      "pctErr": 3.4
+    },
+    {
+      "batter_id": 656248,
+      "games": 40,
+      "pred": 22.0,
+      "actual": 15.0,
+      "pctErr": 46.6
+    },
+    {
+      "batter_id": 688363,
+      "games": 59,
+      "pred": 41.0,
+      "actual": 37.0,
+      "pctErr": 10.8
+    },
+    {
+      "batter_id": 665155,
+      "games": 30,
+      "pred": 15.1,
+      "actual": 14.0,
+      "pctErr": 7.7
+    },
+    {
+      "batter_id": 514888,
+      "games": 161,
+      "pred": 157.3,
+      "actual": 160.0,
+      "pctErr": 1.7
+    },
+    {
+      "batter_id": 691723,
+      "games": 86,
+      "pred": 64.1,
+      "actual": 60.0,
+      "pctErr": 6.8
+    },
+    {
+      "batter_id": 687401,
+      "games": 162,
+      "pred": 117.8,
+      "actual": 116.0,
+      "pctErr": 1.5
+    },
+    {
+      "batter_id": 670770,
+      "games": 158,
+      "pred": 151.7,
+      "actual": 154.0,
+      "pctErr": 1.5
+    },
+    {
+      "batter_id": 677587,
+      "games": 121,
+      "pred": 90.7,
+      "actual": 88.0,
+      "pctErr": 3.1
+    },
+    {
+      "batter_id": 663662,
+      "games": 20,
+      "pred": 11.2,
+      "actual": 11.0,
+      "pctErr": 1.7
+    },
+    {
+      "batter_id": 681481,
+      "games": 146,
+      "pred": 122.4,
+      "actual": 125.0,
+      "pctErr": 2.1
+    },
+    {
+      "batter_id": 620443,
+      "games": 95,
+      "pred": 64.8,
+      "actual": 64.0,
+      "pctErr": 1.2
+    },
+    {
+      "batter_id": 668942,
+      "games": 66,
+      "pred": 43.2,
+      "actual": 34.0,
+      "pctErr": 26.9
+    },
+    {
+      "batter_id": 676701,
+      "games": 21,
+      "pred": 10.8,
+      "actual": 8.0,
+      "pctErr": 35.3
+    },
+    {
+      "batter_id": 649966,
+      "games": 98,
+      "pred": 77.0,
+      "actual": 70.0,
+      "pctErr": 10.0
+    },
+    {
+      "batter_id": 670042,
+      "games": 78,
+      "pred": 52.5,
+      "actual": 44.0,
+      "pctErr": 19.4
+    },
+    {
+      "batter_id": 664059,
+      "games": 64,
+      "pred": 39.9,
+      "actual": 43.0,
+      "pctErr": 7.1
+    },
+    {
+      "batter_id": 682985,
+      "games": 173,
+      "pred": 167.1,
+      "actual": 168.0,
+      "pctErr": 0.6
+    },
+    {
+      "batter_id": 543760,
+      "games": 135,
+      "pred": 115.0,
+      "actual": 114.0,
+      "pctErr": 0.9
+    },
+    {
+      "batter_id": 608385,
+      "games": 31,
+      "pred": 21.5,
+      "actual": 18.0,
+      "pctErr": 19.6
+    },
+    {
+      "batter_id": 676116,
+      "games": 29,
+      "pred": 11.7,
+      "actual": 5.0,
+      "pctErr": 134.4
+    },
+    {
+      "batter_id": 678246,
+      "games": 145,
+      "pred": 121.8,
+      "actual": 123.0,
+      "pctErr": 0.9
+    },
+    {
+      "batter_id": 686555,
+      "games": 138,
+      "pred": 102.5,
+      "actual": 103.0,
+      "pctErr": 0.5
+    },
+    {
+      "batter_id": 595879,
+      "games": 138,
+      "pred": 112.3,
+      "actual": 119.0,
+      "pctErr": 5.6
+    },
+    {
+      "batter_id": 683734,
+      "games": 128,
+      "pred": 108.0,
+      "actual": 110.0,
+      "pctErr": 1.8
+    },
+    {
+      "batter_id": 664913,
+      "games": 40,
+      "pred": 21.1,
+      "actual": 14.0,
+      "pctErr": 50.4
+    },
+    {
+      "batter_id": 677594,
+      "games": 177,
+      "pred": 171.4,
+      "actual": 187.0,
+      "pctErr": 8.4
+    },
+    {
+      "batter_id": 682668,
+      "games": 75,
+      "pred": 52.6,
+      "actual": 48.0,
+      "pctErr": 9.5
+    },
+    {
+      "batter_id": 596142,
+      "games": 34,
+      "pred": 23.5,
+      "actual": 23.0,
+      "pctErr": 2.1
+    },
+    {
+      "batter_id": 676572,
+      "games": 145,
+      "pred": 124.7,
+      "actual": 125.0,
+      "pctErr": 0.2
+    },
+    {
+      "batter_id": 673357,
+      "games": 114,
+      "pred": 94.7,
+      "actual": 92.0,
+      "pctErr": 2.9
+    },
+    {
+      "batter_id": 687231,
+      "games": 52,
+      "pred": 42.7,
+      "actual": 42.0,
+      "pctErr": 1.6
+    },
+    {
+      "batter_id": 645302,
+      "games": 47,
+      "pred": 41.1,
+      "actual": 38.0,
+      "pctErr": 8.2
+    },
+    {
+      "batter_id": 665561,
+      "games": 46,
+      "pred": 29.9,
+      "actual": 26.0,
+      "pctErr": 15.1
+    },
+    {
+      "batter_id": 527038,
+      "games": 132,
+      "pred": 106.7,
+      "actual": 103.0,
+      "pctErr": 3.5
+    },
+    {
+      "batter_id": 663728,
+      "games": 178,
+      "pred": 162.6,
+      "actual": 167.0,
+      "pctErr": 2.6
+    },
+    {
+      "batter_id": 677800,
+      "games": 121,
+      "pred": 98.7,
+      "actual": 93.0,
+      "pctErr": 6.1
+    },
+    {
+      "batter_id": 691594,
+      "games": 116,
+      "pred": 79.5,
+      "actual": 81.0,
+      "pctErr": 1.8
+    },
+    {
+      "batter_id": 672275,
+      "games": 136,
+      "pred": 102.5,
+      "actual": 97.0,
+      "pctErr": 5.7
+    },
+    {
+      "batter_id": 666185,
+      "games": 79,
+      "pred": 58.4,
+      "actual": 49.0,
+      "pctErr": 19.2
+    },
+    {
+      "batter_id": 677008,
+      "games": 57,
+      "pred": 39.7,
+      "actual": 31.0,
+      "pctErr": 28.0
+    },
+    {
+      "batter_id": 641313,
+      "games": 37,
+      "pred": 27.5,
+      "actual": 24.0,
+      "pctErr": 14.5
+    },
+    {
+      "batter_id": 607208,
+      "games": 153,
+      "pred": 162.7,
+      "actual": 188.0,
+      "pctErr": 13.4
+    },
+    {
+      "batter_id": 667670,
+      "games": 168,
+      "pred": 168.3,
+      "actual": 169.0,
+      "pctErr": 0.4
+    },
+    {
+      "batter_id": 668227,
+      "games": 179,
+      "pred": 166.5,
+      "actual": 167.0,
+      "pctErr": 0.3
+    },
+    {
+      "batter_id": 680474,
+      "games": 83,
+      "pred": 47.0,
+      "actual": 38.0,
+      "pctErr": 23.7
+    },
+    {
+      "batter_id": 656582,
+      "games": 43,
+      "pred": 22.4,
+      "actual": 18.0,
+      "pctErr": 24.3
+    },
+    {
+      "batter_id": 680737,
+      "games": 37,
+      "pred": 22.8,
+      "actual": 23.0,
+      "pctErr": 0.8
+    },
+    {
+      "batter_id": 676694,
+      "games": 102,
+      "pred": 94.2,
+      "actual": 104.0,
+      "pctErr": 9.4
+    },
+    {
+      "batter_id": 668845,
+      "games": 21,
+      "pred": 12.0,
+      "actual": 9.0,
+      "pctErr": 32.9
+    },
+    {
+      "batter_id": 593871,
+      "games": 155,
+      "pred": 132.7,
+      "actual": 140.0,
+      "pctErr": 5.2
+    },
+    {
+      "batter_id": 670541,
+      "games": 52,
+      "pred": 46.6,
+      "actual": 46.0,
+      "pctErr": 1.3
+    },
+    {
+      "batter_id": 680757,
+      "games": 165,
+      "pred": 166.5,
+      "actual": 180.0,
+      "pctErr": 7.5
+    },
+    {
+      "batter_id": 596115,
+      "games": 166,
+      "pred": 161.9,
+      "actual": 170.0,
+      "pctErr": 4.7
+    },
+    {
+      "batter_id": 666023,
+      "games": 111,
+      "pred": 85.1,
+      "actual": 87.0,
+      "pctErr": 2.2
+    },
+    {
+      "batter_id": 664761,
+      "games": 130,
+      "pred": 130.8,
+      "actual": 144.0,
+      "pctErr": 9.2
+    },
+    {
+      "batter_id": 671218,
+      "games": 165,
+      "pred": 171.2,
+      "actual": 167.0,
+      "pctErr": 2.5
+    },
+    {
+      "batter_id": 664774,
+      "games": 81,
+      "pred": 52.0,
+      "actual": 40.0,
+      "pctErr": 29.9
+    },
+    {
+      "batter_id": 672640,
+      "games": 149,
+      "pred": 144.5,
+      "actual": 142.0,
+      "pctErr": 1.8
+    },
+    {
+      "batter_id": 608671,
+      "games": 24,
+      "pred": 12.9,
+      "actual": 14.0,
+      "pctErr": 7.5
+    },
+    {
+      "batter_id": 671289,
+      "games": 115,
+      "pred": 109.9,
+      "actual": 112.0,
+      "pctErr": 1.9
+    },
+    {
+      "batter_id": 665742,
+      "games": 166,
+      "pred": 153.6,
+      "actual": 153.0,
+      "pctErr": 0.4
+    },
+    {
+      "batter_id": 608324,
+      "games": 124,
+      "pred": 124.7,
+      "actual": 124.0,
+      "pctErr": 0.5
+    },
+    {
+      "batter_id": 677951,
+      "games": 164,
+      "pred": 175.9,
+      "actual": 194.0,
+      "pctErr": 9.3
+    },
+    {
+      "batter_id": 667472,
+      "games": 109,
+      "pred": 83.8,
+      "actual": 76.0,
+      "pctErr": 10.3
+    },
+    {
+      "batter_id": 656305,
+      "games": 134,
+      "pred": 123.6,
+      "actual": 112.0,
+      "pctErr": 10.4
+    },
+    {
+      "batter_id": 657757,
+      "games": 156,
+      "pred": 132.7,
+      "actual": 132.0,
+      "pctErr": 0.5
+    },
+    {
+      "batter_id": 690993,
+      "games": 150,
+      "pred": 115.1,
+      "actual": 114.0,
+      "pctErr": 0.9
+    },
+    {
+      "batter_id": 641487,
+      "games": 174,
+      "pred": 151.4,
+      "actual": 165.0,
+      "pctErr": 8.2
+    },
+    {
+      "batter_id": 641343,
+      "games": 94,
+      "pred": 53.6,
+      "actual": 51.0,
+      "pctErr": 5.1
+    },
+    {
+      "batter_id": 666397,
+      "games": 70,
+      "pred": 50.6,
+      "actual": 47.0,
+      "pctErr": 7.7
+    },
+    {
+      "batter_id": 656716,
+      "games": 158,
+      "pred": 123.9,
+      "actual": 128.0,
+      "pctErr": 3.2
+    },
+    {
+      "batter_id": 643565,
+      "games": 95,
+      "pred": 86.4,
+      "actual": 90.0,
+      "pctErr": 4.0
+    },
+    {
+      "batter_id": 622569,
+      "games": 28,
+      "pred": 14.3,
+      "actual": 12.0,
+      "pctErr": 18.8
+    },
+    {
+      "batter_id": 680777,
+      "games": 121,
+      "pred": 107.3,
+      "actual": 113.0,
+      "pctErr": 5.0
+    },
+    {
+      "batter_id": 664238,
+      "games": 100,
+      "pred": 51.0,
+      "actual": 49.0,
+      "pctErr": 4.2
+    },
+    {
+      "batter_id": 642715,
+      "games": 166,
+      "pred": 152.2,
+      "actual": 140.0,
+      "pctErr": 8.7
+    },
+    {
+      "batter_id": 605170,
+      "games": 117,
+      "pred": 89.9,
+      "actual": 90.0,
+      "pctErr": 0.1
+    },
+    {
+      "batter_id": 607043,
+      "games": 162,
+      "pred": 156.6,
+      "actual": 163.0,
+      "pctErr": 3.9
+    },
+    {
+      "batter_id": 673962,
+      "games": 136,
+      "pred": 117.4,
+      "actual": 123.0,
+      "pctErr": 4.5
+    },
+    {
+      "batter_id": 687957,
+      "games": 25,
+      "pred": 13.0,
+      "actual": 11.0,
+      "pctErr": 18.0
+    },
+    {
+      "batter_id": 666149,
+      "games": 76,
+      "pred": 60.9,
+      "actual": 53.0,
+      "pctErr": 14.9
+    },
+    {
+      "batter_id": 678662,
+      "games": 103,
+      "pred": 105.5,
+      "actual": 100.0,
+      "pctErr": 5.5
+    },
+    {
+      "batter_id": 656537,
+      "games": 56,
+      "pred": 38.5,
+      "actual": 33.0,
+      "pctErr": 16.8
+    },
+    {
+      "batter_id": 669016,
+      "games": 138,
+      "pred": 106.8,
+      "actual": 112.0,
+      "pctErr": 4.6
+    },
+    {
+      "batter_id": 646240,
+      "games": 168,
+      "pred": 164.4,
+      "actual": 156.0,
+      "pctErr": 5.4
+    },
+    {
+      "batter_id": 672820,
+      "games": 147,
+      "pred": 132.5,
+      "actual": 142.0,
+      "pctErr": 6.7
+    },
+    {
+      "batter_id": 693307,
+      "games": 141,
+      "pred": 119.7,
+      "actual": 129.0,
+      "pctErr": 7.2
+    },
+    {
+      "batter_id": 669234,
+      "games": 59,
+      "pred": 32.3,
+      "actual": 30.0,
+      "pctErr": 7.8
+    },
+    {
+      "batter_id": 682998,
+      "games": 148,
+      "pred": 154.3,
+      "actual": 155.0,
+      "pctErr": 0.4
+    },
+    {
+      "batter_id": 663853,
+      "games": 98,
+      "pred": 85.7,
+      "actual": 97.0,
+      "pctErr": 11.6
+    },
+    {
+      "batter_id": 643289,
+      "games": 123,
+      "pred": 95.1,
+      "actual": 91.0,
+      "pctErr": 4.5
+    },
+    {
+      "batter_id": 543807,
+      "games": 159,
+      "pred": 149.4,
+      "actual": 171.0,
+      "pctErr": 12.7
+    },
+    {
+      "batter_id": 607680,
+      "games": 27,
+      "pred": 12.4,
+      "actual": 13.0,
+      "pctErr": 4.5
+    },
+    {
+      "batter_id": 668939,
+      "games": 95,
+      "pred": 84.9,
+      "actual": 76.0,
+      "pctErr": 11.7
+    },
+    {
+      "batter_id": 686611,
+      "games": 90,
+      "pred": 74.9,
+      "actual": 65.0,
+      "pctErr": 15.3
+    },
+    {
+      "batter_id": 650859,
+      "games": 154,
+      "pred": 122.7,
+      "actual": 122.0,
+      "pctErr": 0.6
+    },
+    {
+      "batter_id": 641933,
+      "games": 59,
+      "pred": 46.7,
+      "actual": 39.0,
+      "pctErr": 19.7
+    },
+    {
+      "batter_id": 670224,
+      "games": 65,
+      "pred": 47.8,
+      "actual": 46.0,
+      "pctErr": 4.0
+    },
+    {
+      "batter_id": 621439,
+      "games": 132,
+      "pred": 135.5,
+      "actual": 134.0,
+      "pctErr": 1.1
+    },
+    {
+      "batter_id": 672386,
+      "games": 152,
+      "pred": 141.2,
+      "actual": 147.0,
+      "pctErr": 3.9
+    },
+    {
+      "batter_id": 656541,
+      "games": 27,
+      "pred": 18.8,
+      "actual": 15.0,
+      "pctErr": 25.5
+    },
+    {
+      "batter_id": 665019,
+      "games": 120,
+      "pred": 88.0,
+      "actual": 80.0,
+      "pctErr": 10.1
+    },
+    {
+      "batter_id": 677950,
+      "games": 140,
+      "pred": 112.2,
+      "actual": 109.0,
+      "pctErr": 3.0
+    },
+    {
+      "batter_id": 691406,
+      "games": 159,
+      "pred": 154.2,
+      "actual": 161.0,
+      "pctErr": 4.2
+    },
+    {
+      "batter_id": 700242,
+      "games": 115,
+      "pred": 76.7,
+      "actual": 61.0,
+      "pctErr": 25.8
+    },
+    {
+      "batter_id": 679529,
+      "games": 169,
+      "pred": 152.9,
+      "actual": 149.0,
+      "pctErr": 2.6
+    },
+    {
+      "batter_id": 677649,
+      "games": 84,
+      "pred": 49.5,
+      "actual": 48.0,
+      "pctErr": 3.1
+    },
+    {
+      "batter_id": 671277,
+      "games": 144,
+      "pred": 128.5,
+      "actual": 130.0,
+      "pctErr": 1.2
+    },
+    {
+      "batter_id": 657136,
+      "games": 61,
+      "pred": 43.1,
+      "actual": 35.0,
+      "pctErr": 23.2
+    },
+    {
+      "batter_id": 673237,
+      "games": 147,
+      "pred": 137.0,
+      "actual": 143.0,
+      "pctErr": 4.2
+    },
+    {
+      "batter_id": 663609,
+      "games": 24,
+      "pred": 13.3,
+      "actual": 12.0,
+      "pctErr": 10.7
+    },
+    {
+      "batter_id": 642133,
+      "games": 115,
+      "pred": 74.1,
+      "actual": 73.0,
+      "pctErr": 1.4
+    },
+    {
+      "batter_id": 670623,
+      "games": 107,
+      "pred": 96.6,
+      "actual": 98.0,
+      "pctErr": 1.4
+    },
+    {
+      "batter_id": 621028,
+      "games": 52,
+      "pred": 30.7,
+      "actual": 25.0,
+      "pctErr": 22.9
+    },
+    {
+      "batter_id": 663624,
+      "games": 93,
+      "pred": 86.3,
+      "actual": 87.0,
+      "pctErr": 0.8
+    },
+    {
+      "batter_id": 518595,
+      "games": 70,
+      "pred": 47.7,
+      "actual": 43.0,
+      "pctErr": 10.9
+    },
+    {
+      "batter_id": 672515,
+      "games": 85,
+      "pred": 76.6,
+      "actual": 83.0,
+      "pctErr": 7.7
+    },
+    {
+      "batter_id": 624415,
+      "games": 36,
+      "pred": 18.8,
+      "actual": 14.0,
+      "pctErr": 34.5
+    },
+    {
+      "batter_id": 668904,
+      "games": 106,
+      "pred": 89.1,
+      "actual": 89.0,
+      "pctErr": 0.1
+    },
+    {
+      "batter_id": 553869,
+      "games": 101,
+      "pred": 65.0,
+      "actual": 55.0,
+      "pctErr": 18.1
+    },
+    {
+      "batter_id": 683011,
+      "games": 163,
+      "pred": 137.1,
+      "actual": 125.0,
+      "pctErr": 9.6
+    },
+    {
+      "batter_id": 650489,
+      "games": 123,
+      "pred": 104.2,
+      "actual": 93.0,
+      "pctErr": 12.0
+    },
+    {
+      "batter_id": 670764,
+      "games": 96,
+      "pred": 68.5,
+      "actual": 66.0,
+      "pctErr": 3.8
+    },
+    {
+      "batter_id": 665862,
+      "games": 144,
+      "pred": 122.6,
+      "actual": 121.0,
+      "pctErr": 1.3
+    },
+    {
+      "batter_id": 592669,
+      "games": 38,
+      "pred": 26.3,
+      "actual": 24.0,
+      "pctErr": 9.6
+    },
+    {
+      "batter_id": 630105,
+      "games": 144,
+      "pred": 118.0,
+      "actual": 109.0,
+      "pctErr": 8.2
+    },
+    {
+      "batter_id": 681393,
+      "games": 91,
+      "pred": 80.6,
+      "actual": 81.0,
+      "pctErr": 0.5
+    },
+    {
+      "batter_id": 665487,
+      "games": 164,
+      "pred": 164.7,
+      "actual": 163.0,
+      "pctErr": 1.1
+    },
+    {
+      "batter_id": 592450,
+      "games": 166,
+      "pred": 169.5,
+      "actual": 194.0,
+      "pctErr": 12.6
+    },
+    {
+      "batter_id": 641943,
+      "games": 48,
+      "pred": 30.9,
+      "actual": 27.0,
+      "pctErr": 14.6
+    },
+    {
+      "batter_id": 650333,
+      "games": 163,
+      "pred": 164.7,
+      "actual": 185.0,
+      "pctErr": 11.0
+    },
+    {
+      "batter_id": 641355,
+      "games": 166,
+      "pred": 160.7,
+      "actual": 174.0,
+      "pctErr": 7.7
+    },
+    {
+      "batter_id": 666969,
+      "games": 143,
+      "pred": 122.3,
+      "actual": 119.0,
+      "pctErr": 2.8
+    },
+    {
+      "batter_id": 642136,
+      "games": 64,
+      "pred": 45.5,
+      "actual": 39.0,
+      "pctErr": 16.8
+    },
+    {
+      "batter_id": 694192,
+      "games": 146,
+      "pred": 148.9,
+      "actual": 168.0,
+      "pctErr": 11.4
+    },
+    {
+      "batter_id": 592518,
+      "games": 168,
+      "pred": 170.3,
+      "actual": 174.0,
+      "pctErr": 2.1
+    },
+    {
+      "batter_id": 666163,
+      "games": 51,
+      "pred": 25.7,
+      "actual": 22.0,
+      "pctErr": 16.9
+    },
+    {
+      "batter_id": 593428,
+      "games": 145,
+      "pred": 131.2,
+      "actual": 137.0,
+      "pctErr": 4.3
+    },
+    {
+      "batter_id": 664034,
+      "games": 144,
+      "pred": 124.8,
+      "actual": 122.0,
+      "pctErr": 2.3
+    },
+    {
+      "batter_id": 672580,
+      "games": 163,
+      "pred": 165.1,
+      "actual": 174.0,
+      "pctErr": 5.1
+    },
+    {
+      "batter_id": 502671,
+      "games": 149,
+      "pred": 131.4,
+      "actual": 141.0,
+      "pctErr": 6.8
+    },
+    {
+      "batter_id": 518792,
+      "games": 38,
+      "pred": 23.0,
+      "actual": 17.0,
+      "pctErr": 35.5
+    },
+    {
+      "batter_id": 656775,
+      "games": 135,
+      "pred": 110.6,
+      "actual": 97.0,
+      "pctErr": 14.0
+    },
+    {
+      "batter_id": 571912,
+      "games": 21,
+      "pred": 12.5,
+      "actual": 12.0,
+      "pctErr": 4.1
+    },
+    {
+      "batter_id": 681962,
+      "games": 47,
+      "pred": 22.3,
+      "actual": 16.0,
+      "pctErr": 39.6
+    },
+    {
+      "batter_id": 543877,
+      "games": 67,
+      "pred": 48.9,
+      "actual": 39.0,
+      "pctErr": 25.4
+    },
+    {
+      "batter_id": 663757,
+      "games": 151,
+      "pred": 130.6,
+      "actual": 122.0,
+      "pctErr": 7.0
+    },
+    {
+      "batter_id": 678877,
+      "games": 69,
+      "pred": 37.3,
+      "actual": 33.0,
+      "pctErr": 12.9
+    },
+    {
+      "batter_id": 681508,
+      "games": 45,
+      "pred": 21.7,
+      "actual": 18.0,
+      "pctErr": 20.6
+    },
+    {
+      "batter_id": 694377,
+      "games": 26,
+      "pred": 19.2,
+      "actual": 19.0,
+      "pctErr": 1.1
+    },
+    {
+      "batter_id": 656811,
+      "games": 152,
+      "pred": 132.2,
+      "actual": 140.0,
+      "pctErr": 5.6
+    },
+    {
+      "batter_id": 695578,
+      "games": 164,
+      "pred": 160.3,
+      "actual": 157.0,
+      "pctErr": 2.1
+    },
+    {
+      "batter_id": 676059,
+      "games": 89,
+      "pred": 85.8,
+      "actual": 91.0,
+      "pctErr": 5.7
+    },
+    {
+      "batter_id": 687363,
+      "games": 137,
+      "pred": 100.6,
+      "actual": 91.0,
+      "pctErr": 10.5
+    },
+    {
+      "batter_id": 669357,
+      "games": 112,
+      "pred": 85.4,
+      "actual": 73.0,
+      "pctErr": 17.0
+    },
+    {
+      "batter_id": 622761,
+      "games": 33,
+      "pred": 21.1,
+      "actual": 15.0,
+      "pctErr": 40.4
+    },
+    {
+      "batter_id": 681297,
+      "games": 96,
+      "pred": 83.0,
+      "actual": 69.0,
+      "pctErr": 20.4
+    },
+    {
+      "batter_id": 666160,
+      "games": 138,
+      "pred": 115.9,
+      "actual": 119.0,
+      "pctErr": 2.6
+    },
+    {
+      "batter_id": 666152,
+      "games": 70,
+      "pred": 42.8,
+      "actual": 38.0,
+      "pctErr": 12.6
+    },
+    {
+      "batter_id": 543309,
+      "games": 98,
+      "pred": 75.4,
+      "actual": 75.0,
+      "pctErr": 0.5
+    },
+    {
+      "batter_id": 621043,
+      "games": 149,
+      "pred": 146.4,
+      "actual": 151.0,
+      "pctErr": 3.1
+    },
+    {
+      "batter_id": 669701,
+      "games": 147,
+      "pred": 129.5,
+      "actual": 127.0,
+      "pctErr": 1.9
+    },
+    {
+      "batter_id": 573262,
+      "games": 150,
+      "pred": 127.3,
+      "actual": 117.0,
+      "pctErr": 8.8
+    },
+    {
+      "batter_id": 679032,
+      "games": 66,
+      "pred": 43.6,
+      "actual": 41.0,
+      "pctErr": 6.4
+    },
+    {
+      "batter_id": 665926,
+      "games": 121,
+      "pred": 93.9,
+      "actual": 87.0,
+      "pctErr": 8.0
+    },
+    {
+      "batter_id": 683083,
+      "games": 35,
+      "pred": 20.6,
+      "actual": 20.0,
+      "pctErr": 2.9
+    },
+    {
+      "batter_id": 678882,
+      "games": 159,
+      "pred": 142.6,
+      "actual": 141.0,
+      "pctErr": 1.1
+    },
+    {
+      "batter_id": 696285,
+      "games": 113,
+      "pred": 86.9,
+      "actual": 80.0,
+      "pctErr": 8.6
+    },
+    {
+      "batter_id": 676356,
+      "games": 23,
+      "pred": 18.2,
+      "actual": 22.0,
+      "pctErr": 17.3
+    },
+    {
+      "batter_id": 682641,
+      "games": 63,
+      "pred": 43.0,
+      "actual": 41.0,
+      "pctErr": 4.9
+    },
+    {
+      "batter_id": 666182,
+      "games": 151,
+      "pred": 160.7,
+      "actual": 194.0,
+      "pctErr": 17.2
+    },
+    {
+      "batter_id": 702616,
+      "games": 154,
+      "pred": 148.2,
+      "actual": 149.0,
+      "pctErr": 0.6
+    },
+    {
+      "batter_id": 672744,
+      "games": 83,
+      "pred": 57.7,
+      "actual": 55.0,
+      "pctErr": 5.0
+    },
+    {
+      "batter_id": 665489,
+      "games": 179,
+      "pred": 181.8,
+      "actual": 203.0,
+      "pctErr": 10.4
+    },
+    {
+      "batter_id": 701538,
+      "games": 123,
+      "pred": 117.6,
+      "actual": 121.0,
+      "pctErr": 2.8
+    },
+    {
+      "batter_id": 623993,
+      "games": 65,
+      "pred": 54.8,
+      "actual": 44.0,
+      "pctErr": 24.5
+    },
+    {
+      "batter_id": 607732,
+      "games": 45,
+      "pred": 31.6,
+      "actual": 19.0,
+      "pctErr": 66.1
+    },
+    {
+      "batter_id": 665052,
+      "games": 30,
+      "pred": 24.8,
+      "actual": 26.0,
+      "pctErr": 4.7
+    },
+    {
+      "batter_id": 682928,
+      "games": 150,
+      "pred": 151.9,
+      "actual": 153.0,
+      "pctErr": 0.7
+    },
+    {
+      "batter_id": 656577,
+      "games": 38,
+      "pred": 24.5,
+      "actual": 23.0,
+      "pctErr": 6.3
+    },
+    {
+      "batter_id": 669707,
+      "games": 106,
+      "pred": 78.9,
+      "actual": 77.0,
+      "pctErr": 2.5
+    },
+    {
+      "batter_id": 668901,
+      "games": 128,
+      "pred": 108.0,
+      "actual": 102.0,
+      "pctErr": 5.9
+    },
+    {
+      "batter_id": 662139,
+      "games": 89,
+      "pred": 72.9,
+      "actual": 77.0,
+      "pctErr": 5.3
+    },
+    {
+      "batter_id": 665877,
+      "games": 34,
+      "pred": 21.7,
+      "actual": 24.0,
+      "pctErr": 9.6
+    },
+    {
+      "batter_id": 694671,
+      "games": 140,
+      "pred": 129.9,
+      "actual": 125.0,
+      "pctErr": 3.9
+    },
+    {
+      "batter_id": 455117,
+      "games": 66,
+      "pred": 34.8,
+      "actual": 33.0,
+      "pctErr": 5.6
+    },
+    {
+      "batter_id": 596019,
+      "games": 167,
+      "pred": 166.4,
+      "actual": 178.0,
+      "pctErr": 6.5
+    },
+    {
+      "batter_id": 628451,
+      "games": 94,
+      "pred": 44.9,
+      "actual": 45.0,
+      "pctErr": 0.3
+    },
+    {
+      "batter_id": 701305,
+      "games": 37,
+      "pred": 30.4,
+      "actual": 30.0,
+      "pctErr": 1.2
+    },
+    {
+      "batter_id": 670097,
+      "games": 25,
+      "pred": 13.9,
+      "actual": 14.0,
+      "pctErr": 1.1
+    },
+    {
+      "batter_id": 596146,
+      "games": 137,
+      "pred": 111.9,
+      "actual": 98.0,
+      "pctErr": 14.2
+    },
+    {
+      "batter_id": 669369,
+      "games": 43,
+      "pred": 20.5,
+      "actual": 26.0,
+      "pctErr": 21.0
+    },
+    {
+      "batter_id": 669364,
+      "games": 144,
+      "pred": 150.4,
+      "actual": 164.0,
+      "pctErr": 8.3
+    },
+    {
+      "batter_id": 605361,
+      "games": 47,
+      "pred": 30.4,
+      "actual": 27.0,
+      "pctErr": 12.6
+    },
+    {
+      "batter_id": 676480,
+      "games": 19,
+      "pred": 9.2,
+      "actual": 7.0,
+      "pctErr": 32.0
+    },
+    {
+      "batter_id": 643396,
+      "games": 150,
+      "pred": 119.5,
+      "actual": 124.0,
+      "pctErr": 3.7
+    },
+    {
+      "batter_id": 670223,
+      "games": 48,
+      "pred": 31.7,
+      "actual": 22.0,
+      "pctErr": 44.3
+    },
+    {
+      "batter_id": 641857,
+      "games": 164,
+      "pred": 137.8,
+      "actual": 116.0,
+      "pctErr": 18.8
+    },
+    {
+      "batter_id": 656180,
+      "games": 85,
+      "pred": 63.1,
+      "actual": 51.0,
+      "pctErr": 23.7
+    },
+    {
+      "batter_id": 666139,
+      "games": 115,
+      "pred": 103.2,
+      "actual": 100.0,
+      "pctErr": 3.2
+    },
+    {
+      "batter_id": 807799,
+      "games": 62,
+      "pred": 50.8,
+      "actual": 58.0,
+      "pctErr": 12.5
+    },
+    {
+      "batter_id": 682177,
+      "games": 135,
+      "pred": 90.3,
+      "actual": 80.0,
+      "pctErr": 12.9
+    },
+    {
+      "batter_id": 669743,
+      "games": 111,
+      "pred": 84.7,
+      "actual": 82.0,
+      "pctErr": 3.2
+    },
+    {
+      "batter_id": 668952,
+      "games": 22,
+      "pred": 10.2,
+      "actual": 9.0,
+      "pctErr": 13.2
+    },
+    {
+      "batter_id": 666310,
+      "games": 128,
+      "pred": 87.2,
+      "actual": 74.0,
+      "pctErr": 17.9
+    },
+    {
+      "batter_id": 671056,
+      "games": 112,
+      "pred": 115.4,
+      "actual": 115.0,
+      "pctErr": 0.3
+    },
+    {
+      "batter_id": 663330,
+      "games": 80,
+      "pred": 39.6,
+      "actual": 40.0,
+      "pctErr": 1.1
+    },
+    {
+      "batter_id": 676801,
+      "games": 53,
+      "pred": 26.9,
+      "actual": 23.0,
+      "pctErr": 16.7
+    },
+    {
+      "batter_id": 668800,
+      "games": 34,
+      "pred": 20.4,
+      "actual": 17.0,
+      "pctErr": 19.7
+    },
+    {
+      "batter_id": 624641,
+      "games": 93,
+      "pred": 66.3,
+      "actual": 74.0,
+      "pctErr": 10.4
+    },
+    {
+      "batter_id": 668885,
+      "games": 51,
+      "pred": 42.3,
+      "actual": 49.0,
+      "pctErr": 13.7
+    },
+    {
+      "batter_id": 665966,
+      "games": 125,
+      "pred": 109.0,
+      "actual": 100.0,
+      "pctErr": 9.0
+    },
+    {
+      "batter_id": 663698,
+      "games": 96,
+      "pred": 78.5,
+      "actual": 76.0,
+      "pctErr": 3.3
+    },
+    {
+      "batter_id": 669911,
+      "games": 94,
+      "pred": 80.5,
+      "actual": 62.0,
+      "pctErr": 29.9
+    },
+    {
+      "batter_id": 516782,
+      "games": 102,
+      "pred": 74.9,
+      "actual": 81.0,
+      "pctErr": 7.6
+    },
+    {
+      "batter_id": 681146,
+      "games": 47,
+      "pred": 34.2,
+      "actual": 23.0,
+      "pctErr": 48.7
+    },
+    {
+      "batter_id": 683146,
+      "games": 133,
+      "pred": 101.5,
+      "actual": 106.0,
+      "pctErr": 4.3
+    },
+    {
+      "batter_id": 493329,
+      "games": 23,
+      "pred": 13.5,
+      "actual": 9.0,
+      "pctErr": 49.9
+    },
+    {
+      "batter_id": 643376,
+      "games": 100,
+      "pred": 67.5,
+      "actual": 63.0,
+      "pctErr": 7.1
+    },
+    {
+      "batter_id": 502054,
+      "games": 122,
+      "pred": 102.4,
+      "actual": 100.0,
+      "pctErr": 2.4
+    },
+    {
+      "batter_id": 660757,
+      "games": 24,
+      "pred": 18.4,
+      "actual": 19.0,
+      "pctErr": 3.1
+    },
+    {
+      "batter_id": 623168,
+      "games": 58,
+      "pred": 40.4,
+      "actual": 45.0,
+      "pctErr": 10.2
+    },
+    {
+      "batter_id": 664702,
+      "games": 118,
+      "pred": 73.8,
+      "actual": 73.0,
+      "pctErr": 1.1
+    },
+    {
+      "batter_id": 663968,
+      "games": 117,
+      "pred": 103.1,
+      "actual": 120.0,
+      "pctErr": 14.1
+    },
+    {
+      "batter_id": 624431,
+      "games": 93,
+      "pred": 72.8,
+      "actual": 68.0,
+      "pctErr": 7.1
+    },
+    {
+      "batter_id": 668804,
+      "games": 159,
+      "pred": 144.9,
+      "actual": 147.0,
+      "pctErr": 1.4
+    },
+    {
+      "batter_id": 606192,
+      "games": 153,
+      "pred": 143.3,
+      "actual": 146.0,
+      "pctErr": 1.8
+    },
+    {
+      "batter_id": 673548,
+      "games": 162,
+      "pred": 152.5,
+      "actual": 150.0,
+      "pctErr": 1.7
+    },
+    {
+      "batter_id": 702332,
+      "games": 147,
+      "pred": 120.9,
+      "actual": 127.0,
+      "pctErr": 4.8
+    },
+    {
+      "batter_id": 592626,
+      "games": 102,
+      "pred": 64.0,
+      "actual": 53.0,
+      "pctErr": 20.7
+    },
+    {
+      "batter_id": 457759,
+      "games": 80,
+      "pred": 42.6,
+      "actual": 40.0,
+      "pctErr": 6.4
+    },
+    {
+      "batter_id": 641680,
+      "games": 126,
+      "pred": 95.9,
+      "actual": 87.0,
+      "pctErr": 10.3
+    },
+    {
+      "batter_id": 681987,
+      "games": 35,
+      "pred": 19.9,
+      "actual": 26.0,
+      "pctErr": 23.6
+    },
+    {
+      "batter_id": 663656,
+      "games": 147,
+      "pred": 140.6,
+      "actual": 142.0,
+      "pctErr": 1.0
+    },
+    {
+      "batter_id": 500743,
+      "games": 117,
+      "pred": 77.1,
+      "actual": 80.0,
+      "pctErr": 3.6
+    },
+    {
+      "batter_id": 571970,
+      "games": 119,
+      "pred": 93.5,
+      "actual": 88.0,
+      "pctErr": 6.2
+    },
+    {
+      "batter_id": 542932,
+      "games": 45,
+      "pred": 27.2,
+      "actual": 22.0,
+      "pctErr": 23.5
+    },
+    {
+      "batter_id": 665804,
+      "games": 30,
+      "pred": 25.5,
+      "actual": 29.0,
+      "pctErr": 12.1
+    },
+    {
+      "batter_id": 681624,
+      "games": 172,
+      "pred": 158.1,
+      "actual": 163.0,
+      "pctErr": 3.0
+    },
+    {
+      "batter_id": 571771,
+      "games": 104,
+      "pred": 68.5,
+      "actual": 63.0,
+      "pctErr": 8.7
+    },
+    {
+      "batter_id": 660271,
+      "games": 177,
+      "pred": 181.7,
+      "actual": 189.0,
+      "pctErr": 3.9
+    },
+    {
+      "batter_id": 691718,
+      "games": 167,
+      "pred": 154.6,
+      "actual": 154.0,
+      "pctErr": 0.4
+    },
+    {
+      "batter_id": 683737,
+      "games": 165,
+      "pred": 138.9,
+      "actual": 146.0,
+      "pctErr": 4.9
+    },
+    {
+      "batter_id": 669242,
+      "games": 114,
+      "pred": 96.4,
+      "actual": 94.0,
+      "pctErr": 2.6
+    },
+    {
+      "batter_id": 624424,
+      "games": 140,
+      "pred": 101.0,
+      "actual": 83.0,
+      "pctErr": 21.7
+    },
+    {
+      "batter_id": 669257,
+      "games": 126,
+      "pred": 114.2,
+      "actual": 122.0,
+      "pctErr": 6.4
+    },
+    {
+      "batter_id": 664023,
+      "games": 161,
+      "pred": 144.4,
+      "actual": 142.0,
+      "pctErr": 1.7
+    },
+    {
+      "batter_id": 621020,
+      "games": 170,
+      "pred": 150.7,
+      "actual": 150.0,
+      "pctErr": 0.5
+    },
+    {
+      "batter_id": 669450,
+      "games": 40,
+      "pred": 22.2,
+      "actual": 19.0,
+      "pctErr": 16.8
+    },
+    {
+      "batter_id": 596103,
+      "games": 65,
+      "pred": 36.4,
+      "actual": 34.0,
+      "pctErr": 7.1
+    },
+    {
+      "batter_id": 643217,
+      "games": 120,
+      "pred": 103.5,
+      "actual": 103.0,
+      "pctErr": 0.5
+    },
+    {
+      "batter_id": 672724,
+      "games": 96,
+      "pred": 52.1,
+      "actual": 41.0,
+      "pctErr": 27.2
+    },
+    {
+      "batter_id": 671286,
+      "games": 29,
+      "pred": 17.0,
+      "actual": 15.0,
+      "pctErr": 13.3
+    },
+    {
+      "batter_id": 608348,
+      "games": 119,
+      "pred": 97.7,
+      "actual": 99.0,
+      "pctErr": 1.3
+    },
+    {
+      "batter_id": 691777,
+      "games": 64,
+      "pred": 46.3,
+      "actual": 46.0,
+      "pctErr": 0.7
+    },
+    {
+      "batter_id": 595777,
+      "games": 85,
+      "pred": 82.2,
+      "actual": 83.0,
+      "pctErr": 1.0
+    },
+    {
+      "batter_id": 680577,
+      "games": 40,
+      "pred": 21.5,
+      "actual": 12.0,
+      "pctErr": 79.3
+    },
+    {
+      "batter_id": 602104,
+      "games": 113,
+      "pred": 91.5,
+      "actual": 86.0,
+      "pctErr": 6.4
+    },
+    {
+      "batter_id": 660644,
+      "games": 47,
+      "pred": 23.6,
+      "actual": 23.0,
+      "pctErr": 2.7
+    },
+    {
+      "batter_id": 668974,
+      "games": 18,
+      "pred": 6.4,
+      "actual": 3.0,
+      "pctErr": 113.0
+    },
+    {
+      "batter_id": 701350,
+      "games": 74,
+      "pred": 62.8,
+      "actual": 75.0,
+      "pctErr": 16.3
+    },
+    {
+      "batter_id": 683090,
+      "games": 28,
+      "pred": 15.0,
+      "actual": 16.0,
+      "pctErr": 6.1
+    },
+    {
+      "batter_id": 686948,
+      "games": 126,
+      "pred": 103.7,
+      "actual": 113.0,
+      "pctErr": 8.2
+    },
+    {
+      "batter_id": 688760,
+      "games": 22,
+      "pred": 11.4,
+      "actual": 13.0,
+      "pctErr": 12.5
+    },
+    {
+      "batter_id": 691785,
+      "games": 45,
+      "pred": 29.8,
+      "actual": 30.0,
+      "pctErr": 0.8
+    },
+    {
+      "batter_id": 663538,
+      "games": 167,
+      "pred": 163.6,
+      "actual": 192.0,
+      "pctErr": 14.8
+    },
+    {
+      "batter_id": 683766,
+      "games": 63,
+      "pred": 42.5,
+      "actual": 47.0,
+      "pctErr": 9.7
+    },
+    {
+      "batter_id": 624512,
+      "games": 43,
+      "pred": 29.9,
+      "actual": 31.0,
+      "pctErr": 3.5
+    },
+    {
+      "batter_id": 691182,
+      "games": 39,
+      "pred": 28.1,
+      "actual": 21.0,
+      "pctErr": 34.0
+    },
+    {
+      "batter_id": 691728,
+      "games": 14,
+      "pred": 8.7,
+      "actual": 5.0,
+      "pctErr": 74.4
+    },
+    {
+      "batter_id": 805367,
+      "games": 121,
+      "pred": 109.3,
+      "actual": 115.0,
+      "pctErr": 4.9
+    },
+    {
+      "batter_id": 518692,
+      "games": 166,
+      "pred": 167.2,
+      "actual": 178.0,
+      "pctErr": 6.1
+    },
+    {
+      "batter_id": 680574,
+      "games": 147,
+      "pred": 122.0,
+      "actual": 114.0,
+      "pctErr": 7.0
+    },
+    {
+      "batter_id": 668930,
+      "games": 165,
+      "pred": 162.3,
+      "actual": 174.0,
+      "pctErr": 6.7
+    },
+    {
+      "batter_id": 621035,
+      "games": 46,
+      "pred": 26.9,
+      "actual": 22.0,
+      "pctErr": 22.5
+    },
+    {
+      "batter_id": 669717,
+      "games": 35,
+      "pred": 17.8,
+      "actual": 16.0,
+      "pctErr": 11.3
+    },
+    {
+      "batter_id": 641555,
+      "games": 36,
+      "pred": 23.4,
+      "actual": 17.0,
+      "pctErr": 37.7
+    },
+    {
+      "batter_id": 663584,
+      "games": 29,
+      "pred": 16.0,
+      "actual": 14.0,
+      "pctErr": 14.6
+    },
+    {
+      "batter_id": 808982,
+      "games": 150,
+      "pred": 146.3,
+      "actual": 149.0,
+      "pctErr": 1.8
+    },
+    {
+      "batter_id": 807713,
+      "games": 130,
+      "pred": 91.1,
+      "actual": 90.0,
+      "pctErr": 1.2
+    },
+    {
+      "batter_id": 605141,
+      "games": 167,
+      "pred": 159.8,
+      "actual": 168.0,
+      "pctErr": 4.9
+    },
+    {
+      "batter_id": 672569,
+      "games": 27,
+      "pred": 14.9,
+      "actual": 10.0,
+      "pctErr": 49.3
+    },
+    {
+      "batter_id": 686475,
+      "games": 37,
+      "pred": 18.9,
+      "actual": 14.0,
+      "pctErr": 35.3
+    },
+    {
+      "batter_id": 660162,
+      "games": 83,
+      "pred": 62.6,
+      "actual": 58.0,
+      "pctErr": 7.9
+    },
+    {
+      "batter_id": 668715,
+      "games": 144,
+      "pred": 124.7,
+      "actual": 124.0,
+      "pctErr": 0.6
+    },
+    {
+      "batter_id": 572233,
+      "games": 154,
+      "pred": 140.3,
+      "actual": 139.0,
+      "pctErr": 1.0
+    },
+    {
+      "batter_id": 692225,
+      "games": 67,
+      "pred": 58.6,
+      "actual": 51.0,
+      "pctErr": 14.9
+    },
+    {
+      "batter_id": 702176,
+      "games": 48,
+      "pred": 29.8,
+      "actual": 25.0,
+      "pctErr": 19.3
+    },
+    {
+      "batter_id": 682848,
+      "games": 14,
+      "pred": 8.1,
+      "actual": 9.0,
+      "pctErr": 10.1
+    },
+    {
+      "batter_id": 665839,
+      "games": 30,
+      "pred": 19.2,
+      "actual": 19.0,
+      "pctErr": 1.1
+    },
+    {
+      "batter_id": 689414,
+      "games": 117,
+      "pred": 82.9,
+      "actual": 82.0,
+      "pctErr": 1.1
+    },
+    {
+      "batter_id": 701358,
+      "games": 131,
+      "pred": 110.9,
+      "actual": 103.0,
+      "pctErr": 7.7
+    },
+    {
+      "batter_id": 669087,
+      "games": 19,
+      "pred": 12.3,
+      "actual": 11.0,
+      "pctErr": 11.5
+    },
+    {
+      "batter_id": 683002,
+      "games": 154,
+      "pred": 155.8,
+      "actual": 158.0,
+      "pctErr": 1.4
+    },
+    {
+      "batter_id": 669221,
+      "games": 93,
+      "pred": 71.6,
+      "actual": 58.0,
+      "pctErr": 23.4
+    },
+    {
+      "batter_id": 694374,
+      "games": 66,
+      "pred": 43.4,
+      "actual": 39.0,
+      "pctErr": 11.3
+    },
+    {
+      "batter_id": 666181,
+      "games": 86,
+      "pred": 58.1,
+      "actual": 52.0,
+      "pctErr": 11.7
+    },
+    {
+      "batter_id": 682622,
+      "games": 89,
+      "pred": 85.7,
+      "actual": 89.0,
+      "pctErr": 3.7
+    },
+    {
+      "batter_id": 660821,
+      "games": 134,
+      "pred": 117.5,
+      "actual": 107.0,
+      "pctErr": 9.8
+    },
+    {
+      "batter_id": 810938,
+      "games": 80,
+      "pred": 65.9,
+      "actual": 68.0,
+      "pctErr": 3.1
+    },
+    {
+      "batter_id": 687263,
+      "games": 128,
+      "pred": 124.5,
+      "actual": 129.0,
+      "pctErr": 3.5
+    },
+    {
+      "batter_id": 657077,
+      "games": 56,
+      "pred": 49.9,
+      "actual": 47.0,
+      "pctErr": 6.2
+    },
+    {
+      "batter_id": 650968,
+      "games": 59,
+      "pred": 36.9,
+      "actual": 31.0,
+      "pctErr": 18.9
+    },
+    {
+      "batter_id": 642215,
+      "games": 46,
+      "pred": 26.8,
+      "actual": 22.0,
+      "pctErr": 21.6
+    },
+    {
+      "batter_id": 700337,
+      "games": 105,
+      "pred": 83.7,
+      "actual": 91.0,
+      "pctErr": 8.1
+    },
+    {
+      "batter_id": 802415,
+      "games": 103,
+      "pred": 99.0,
+      "actual": 117.0,
+      "pctErr": 15.4
+    },
+    {
+      "batter_id": 643446,
+      "games": 122,
+      "pred": 100.2,
+      "actual": 97.0,
+      "pctErr": 3.3
+    },
+    {
+      "batter_id": 682626,
+      "games": 74,
+      "pred": 64.4,
+      "actual": 63.0,
+      "pctErr": 2.2
+    },
+    {
+      "batter_id": 678489,
+      "games": 28,
+      "pred": 13.4,
+      "actual": 10.0,
+      "pctErr": 33.9
+    },
+    {
+      "batter_id": 682927,
+      "games": 24,
+      "pred": 13.8,
+      "actual": 16.0,
+      "pctErr": 13.9
+    },
+    {
+      "batter_id": 682729,
+      "games": 33,
+      "pred": 25.7,
+      "actual": 21.0,
+      "pctErr": 22.5
+    },
+    {
+      "batter_id": 656896,
+      "games": 39,
+      "pred": 29.1,
+      "actual": 30.0,
+      "pctErr": 3.1
+    },
+    {
+      "batter_id": 682663,
+      "games": 130,
+      "pred": 127.6,
+      "actual": 115.0,
+      "pctErr": 11.0
+    },
+    {
+      "batter_id": 701762,
+      "games": 112,
+      "pred": 111.6,
+      "actual": 118.0,
+      "pctErr": 5.4
+    },
+    {
+      "batter_id": 663886,
+      "games": 90,
+      "pred": 76.7,
+      "actual": 70.0,
+      "pctErr": 9.5
+    },
+    {
+      "batter_id": 678391,
+      "games": 26,
+      "pred": 15.0,
+      "actual": 9.0,
+      "pctErr": 67.0
+    },
+    {
+      "batter_id": 681546,
+      "games": 47,
+      "pred": 26.9,
+      "actual": 18.0,
+      "pctErr": 49.3
+    },
+    {
+      "batter_id": 678894,
+      "games": 27,
+      "pred": 18.4,
+      "actual": 15.0,
+      "pctErr": 22.7
+    },
+    {
+      "batter_id": 518934,
+      "games": 41,
+      "pred": 32.3,
+      "actual": 34.0,
+      "pctErr": 4.9
+    },
+    {
+      "batter_id": 808975,
+      "games": 51,
+      "pred": 36.5,
+      "actual": 38.0,
+      "pctErr": 4.0
+    },
+    {
+      "batter_id": 671284,
+      "games": 19,
+      "pred": 12.1,
+      "actual": 8.0,
+      "pctErr": 51.0
+    },
+    {
+      "batter_id": 687462,
+      "games": 108,
+      "pred": 93.1,
+      "actual": 99.0,
+      "pctErr": 6.0
+    },
+    {
+      "batter_id": 663837,
+      "games": 31,
+      "pred": 23.1,
+      "actual": 21.0,
+      "pctErr": 10.1
+    },
+    {
+      "batter_id": 660670,
+      "games": 95,
+      "pred": 95.7,
+      "actual": 98.0,
+      "pctErr": 2.3
+    },
+    {
+      "batter_id": 691783,
+      "games": 21,
+      "pred": 11.3,
+      "actual": 12.0,
+      "pctErr": 5.8
+    },
+    {
+      "batter_id": 690987,
+      "games": 61,
+      "pred": 44.3,
+      "actual": 42.0,
+      "pctErr": 5.5
+    },
+    {
+      "batter_id": 670231,
+      "games": 55,
+      "pred": 38.5,
+      "actual": 30.0,
+      "pctErr": 28.4
+    },
+    {
+      "batter_id": 696030,
+      "games": 54,
+      "pred": 34.4,
+      "actual": 30.0,
+      "pctErr": 14.8
+    },
+    {
+      "batter_id": 695734,
+      "games": 86,
+      "pred": 76.5,
+      "actual": 93.0,
+      "pctErr": 17.8
+    },
+    {
+      "batter_id": 672016,
+      "games": 39,
+      "pred": 29.6,
+      "actual": 31.0,
+      "pctErr": 4.6
+    },
+    {
+      "batter_id": 681807,
+      "games": 66,
+      "pred": 32.5,
+      "actual": 25.0,
+      "pctErr": 30.2
+    },
+    {
+      "batter_id": 680862,
+      "games": 28,
+      "pred": 20.4,
+      "actual": 18.0,
+      "pctErr": 13.2
+    },
+    {
+      "batter_id": 687221,
+      "games": 45,
+      "pred": 28.6,
+      "actual": 23.0,
+      "pctErr": 24.5
+    },
+    {
+      "batter_id": 678009,
+      "games": 64,
+      "pred": 51.2,
+      "actual": 45.0,
+      "pctErr": 13.8
+    },
+    {
+      "batter_id": 689200,
+      "games": 23,
+      "pred": 15.2,
+      "actual": 10.0,
+      "pctErr": 51.7
+    },
+    {
+      "batter_id": 702284,
+      "games": 69,
+      "pred": 53.2,
+      "actual": 46.0,
+      "pctErr": 15.7
+    },
+    {
+      "batter_id": 695506,
+      "games": 58,
+      "pred": 43.5,
+      "actual": 32.0,
+      "pctErr": 36.0
+    },
+    {
+      "batter_id": 669288,
+      "games": 19,
+      "pred": 8.8,
+      "actual": 7.0,
+      "pctErr": 25.3
+    },
+    {
+      "batter_id": 681715,
+      "games": 80,
+      "pred": 67.6,
+      "actual": 65.0,
+      "pctErr": 4.0
+    },
+    {
+      "batter_id": 690022,
+      "games": 57,
+      "pred": 45.7,
+      "actual": 43.0,
+      "pctErr": 6.3
+    },
+    {
+      "batter_id": 690924,
+      "games": 34,
+      "pred": 23.9,
+      "actual": 22.0,
+      "pctErr": 8.7
+    },
+    {
+      "batter_id": 665953,
+      "games": 27,
+      "pred": 16.1,
+      "actual": 12.0,
+      "pctErr": 34.0
+    },
+    {
+      "batter_id": 691019,
+      "games": 73,
+      "pred": 59.8,
+      "actual": 66.0,
+      "pctErr": 9.3
+    },
+    {
+      "batter_id": 805249,
+      "games": 58,
+      "pred": 46.2,
+      "actual": 42.0,
+      "pctErr": 9.9
+    },
+    {
+      "batter_id": 677595,
+      "games": 51,
+      "pred": 36.4,
+      "actual": 33.0,
+      "pctErr": 10.2
+    },
+    {
+      "batter_id": 695681,
+      "games": 49,
+      "pred": 31.6,
+      "actual": 32.0,
+      "pctErr": 1.4
+    },
+    {
+      "batter_id": 519317,
+      "games": 84,
+      "pred": 71.4,
+      "actual": 73.0,
+      "pctErr": 2.2
+    },
+    {
+      "batter_id": 666211,
+      "games": 47,
+      "pred": 26.6,
+      "actual": 23.0,
+      "pctErr": 15.7
+    },
+    {
+      "batter_id": 543510,
+      "games": 38,
+      "pred": 30.9,
+      "actual": 32.0,
+      "pctErr": 3.3
+    },
+    {
+      "batter_id": 687515,
+      "games": 45,
+      "pred": 27.0,
+      "actual": 26.0,
+      "pctErr": 3.8
+    },
+    {
+      "batter_id": 677942,
+      "games": 68,
+      "pred": 58.5,
+      "actual": 53.0,
+      "pctErr": 10.4
+    },
+    {
+      "batter_id": 673490,
+      "games": 48,
+      "pred": 40.7,
+      "actual": 40.0,
+      "pctErr": 1.7
+    },
+    {
+      "batter_id": 692585,
+      "games": 47,
+      "pred": 33.1,
+      "actual": 27.0,
+      "pctErr": 22.7
+    },
+    {
+      "batter_id": 695657,
+      "games": 66,
+      "pred": 53.3,
+      "actual": 55.0,
+      "pctErr": 3.1
+    },
+    {
+      "batter_id": 805373,
+      "games": 57,
+      "pred": 43.6,
+      "actual": 44.0,
+      "pctErr": 1.0
+    },
+    {
+      "batter_id": 663368,
+      "games": 53,
+      "pred": 40.8,
+      "actual": 38.0,
+      "pctErr": 7.4
+    },
+    {
+      "batter_id": 680728,
+      "games": 43,
+      "pred": 31.8,
+      "actual": 29.0,
+      "pctErr": 9.5
+    },
+    {
+      "batter_id": 678011,
+      "games": 26,
+      "pred": 11.6,
+      "actual": 9.0,
+      "pctErr": 28.8
+    },
+    {
+      "batter_id": 666126,
+      "games": 36,
+      "pred": 21.2,
+      "actual": 26.0,
+      "pctErr": 18.5
+    },
+    {
+      "batter_id": 682653,
+      "games": 36,
+      "pred": 33.8,
+      "actual": 31.0,
+      "pctErr": 9.0
+    },
+    {
+      "batter_id": 682988,
+      "games": 31,
+      "pred": 22.9,
+      "actual": 18.0,
+      "pctErr": 27.3
+    },
+    {
+      "batter_id": 676439,
+      "games": 34,
+      "pred": 20.5,
+      "actual": 13.0,
+      "pctErr": 57.5
+    },
+    {
+      "batter_id": 669326,
+      "games": 47,
+      "pred": 30.8,
+      "actual": 28.0,
+      "pctErr": 9.9
+    },
+    {
+      "batter_id": 807712,
+      "games": 42,
+      "pred": 43.0,
+      "actual": 48.0,
+      "pctErr": 10.5
+    },
+    {
+      "batter_id": 687859,
+      "games": 39,
+      "pred": 26.6,
+      "actual": 29.0,
+      "pctErr": 8.2
+    },
+    {
+      "batter_id": 805300,
+      "games": 49,
+      "pred": 52.3,
+      "actual": 54.0,
+      "pctErr": 3.1
+    },
+    {
+      "batter_id": 690976,
+      "games": 22,
+      "pred": 14.6,
+      "actual": 10.0,
+      "pctErr": 46.4
+    },
+    {
+      "batter_id": 669236,
+      "games": 42,
+      "pred": 39.7,
+      "actual": 42.0,
+      "pctErr": 5.5
+    },
+    {
+      "batter_id": 691720,
+      "games": 38,
+      "pred": 32.7,
+      "actual": 27.0,
+      "pctErr": 21.1
+    },
+    {
+      "batter_id": 692216,
+      "games": 38,
+      "pred": 26.5,
+      "actual": 21.0,
+      "pctErr": 26.1
+    },
+    {
+      "batter_id": 687551,
+      "games": 28,
+      "pred": 19.4,
+      "actual": 18.0,
+      "pctErr": 7.8
+    },
+    {
+      "batter_id": 695391,
+      "games": 29,
+      "pred": 17.8,
+      "actual": 20.0,
+      "pctErr": 11.2
+    },
+    {
+      "batter_id": 676044,
+      "games": 23,
+      "pred": 18.7,
+      "actual": 16.0,
+      "pctErr": 16.8
+    },
+    {
+      "batter_id": 677592,
+      "games": 19,
+      "pred": 11.9,
+      "actual": 7.0,
+      "pctErr": 70.7
+    },
+    {
+      "batter_id": 701675,
+      "games": 19,
+      "pred": 10.9,
+      "actual": 10.0,
+      "pctErr": 9.3
+    },
+    {
+      "batter_id": 683227,
+      "games": 30,
+      "pred": 20.6,
+      "actual": 24.0,
+      "pctErr": 14.0
+    },
+    {
+      "batter_id": 687637,
+      "games": 32,
+      "pred": 28.1,
+      "actual": 21.0,
+      "pctErr": 33.8
+    },
+    {
+      "batter_id": 694212,
+      "games": 26,
+      "pred": 20.2,
+      "actual": 14.0,
+      "pctErr": 44.4
+    },
+    {
+      "batter_id": 700246,
+      "games": 26,
+      "pred": 17.6,
+      "actual": 11.0,
+      "pctErr": 60.3
+    },
+    {
+      "batter_id": 701398,
+      "games": 15,
+      "pred": 10.5,
+      "actual": 13.0,
+      "pctErr": 19.4
+    },
+    {
+      "batter_id": 694208,
+      "games": 17,
+      "pred": 12.9,
+      "actual": 13.0,
+      "pctErr": 1.0
+    },
+    {
+      "batter_id": 695600,
+      "games": 14,
+      "pred": 10.0,
+      "actual": 17.0,
+      "pctErr": 41.2
+    }
+  ],
+  "season_pct_mae": 12.5
+}
