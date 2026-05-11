@@ -49,6 +49,26 @@ _CACHE_DIR    = _REPO_ROOT / "artifacts" / "hitting_cache"
 # Static park factors (2025 approximations)
 # ---------------------------------------------------------------------------
 
+# Full team name (lowercase) → abbreviation — used to resolve event home/away
+_TEAM_NAME_TO_ABBR: dict[str, str] = {
+    "arizona diamondbacks": "ARI", "atlanta braves": "ATL",
+    "baltimore orioles": "BAL",    "boston red sox": "BOS",
+    "chicago white sox": "CWS",   "chicago cubs": "CHC",
+    "cincinnati reds": "CIN",      "cleveland guardians": "CLE",
+    "colorado rockies": "COL",     "detroit tigers": "DET",
+    "houston astros": "HOU",       "kansas city royals": "KC",
+    "los angeles angels": "LAA",   "los angeles dodgers": "LAD",
+    "miami marlins": "MIA",        "milwaukee brewers": "MIL",
+    "minnesota twins": "MIN",      "new york yankees": "NYY",
+    "new york mets": "NYM",        "athletics": "OAK",
+    "oakland athletics": "OAK",    "philadelphia phillies": "PHI",
+    "pittsburgh pirates": "PIT",   "san diego padres": "SD",
+    "san francisco giants": "SF",  "seattle mariners": "SEA",
+    "st. louis cardinals": "STL",  "tampa bay rays": "TB",
+    "texas rangers": "TEX",        "toronto blue jays": "TOR",
+    "washington nationals": "WSH",
+}
+
 _PARK_FACTORS = {
     "COL": 1.12, "CIN": 1.07, "BOS": 1.06, "TEX": 1.05, "PHI": 1.04,
     "MIL": 1.03, "CLE": 1.02, "CHC": 1.01, "HOU": 1.01, "ARI": 1.01,
@@ -317,100 +337,101 @@ def _compute_batter_features(
 
 def _get_batter_hit_lines() -> dict[str, dict]:
     """
-    Fetch today's DraftKings batter hit prop lines via The Odds API.
-    Market key: batter_hits
+    Fetch DraftKings batter hit prop lines via The Odds API (batter_hits market).
 
-    Returns {name_lower: {line, over_odds, under_odds, book}} or {} on failure.
+    Returns {name_lower: {line, over_odds, under_odds, book,
+                          home_team_abbr, away_team_abbr}}
 
-    NOTE: If odds_api.get_batter_hit_lines() is implemented in the future,
-    call that instead.  This implementation calls The Odds API directly using
-    the same _get/_api_key helpers to avoid duplicating auth logic.
+    home/away team abbrs are derived directly from the event so the caller
+    can determine park and opponent without needing a separate matchup lookup.
     """
-    # Import the shared HTTP helper and credentials from odds_api
     try:
         from backend.app.data.odds_api import _get as _odds_get, PREFERRED_BOOKS
-        BATTER_MARKET = "batter_hits"
-        SPORT         = "baseball_mlb"
-        REGIONS       = "us"
-        FMT           = "american"
+    except ImportError:
+        from app.data.odds_api import _get as _odds_get, PREFERRED_BOOKS
 
-        print("[hitting_pipeline] Fetching DK batter hit lines via The Odds API...")
+    BATTER_MARKET = "batter_hits"
+    SPORT         = "baseball_mlb"
+    REGIONS       = "us"
+    FMT           = "american"
+
+    print("[hitting_pipeline] Fetching DK batter hit lines via The Odds API...")
+    try:
         events = _odds_get(f"/sports/{SPORT}/events", {"regions": REGIONS})
-        if not isinstance(events, list):
-            print("[hitting_pipeline] Unexpected events response — returning empty lines.")
-            return {}
-
-        result: dict[str, dict] = {}
-
-        for event in events:
-            event_id = event.get("id")
-            if not event_id:
-                continue
-            try:
-                odds = _odds_get(
-                    f"/sports/{SPORT}/events/{event_id}/odds",
-                    {
-                        "regions":    REGIONS,
-                        "markets":    BATTER_MARKET,
-                        "oddsFormat": FMT,
-                    },
-                )
-                # Parse bookmakers — prefer DraftKings first
-                bookmakers = odds.get("bookmakers", [])
-
-                def _book_rank(bm):
-                    title = bm.get("title", "")
-                    try:
-                        return PREFERRED_BOOKS.index(title)
-                    except ValueError:
-                        return len(PREFERRED_BOOKS)
-
-                bookmakers = sorted(bookmakers, key=_book_rank)
-
-                for bookmaker in bookmakers:
-                    book = bookmaker.get("title", "")
-                    for market in bookmaker.get("markets", []):
-                        if market.get("key") != BATTER_MARKET:
-                            continue
-                        outcomes = market.get("outcomes", [])
-                        # First pass: over lines
-                        for outcome in outcomes:
-                            name  = (outcome.get("description") or outcome.get("name") or "").strip()
-                            point = outcome.get("point")
-                            price = outcome.get("price")
-                            label = (outcome.get("name") or "").lower()
-                            if not name or point is None or "over" not in label:
-                                continue
-                            key = name.lower()
-                            if key not in result:
-                                result[key] = {
-                                    "line":       float(point),
-                                    "over_odds":  int(price) if price is not None else -115,
-                                    "under_odds": -115,
-                                    "book":       book,
-                                }
-                        # Second pass: under_odds for recorded entries
-                        for outcome in outcomes:
-                            name  = (outcome.get("description") or outcome.get("name") or "").strip()
-                            price = outcome.get("price")
-                            label = (outcome.get("name") or "").lower()
-                            key   = name.lower()
-                            if (
-                                key in result
-                                and result[key]["book"] == book
-                                and "under" in label
-                                and price is not None
-                            ):
-                                result[key]["under_odds"] = int(price)
-            except Exception as exc:
-                print(f"  [hitting_pipeline] event {event_id}: {exc}")
-
-        print(f"[hitting_pipeline] {len(result)} batter hit lines fetched.")
-        return result
-
     except Exception as exc:
-        print(f"[hitting_pipeline] Could not fetch batter hit lines: {exc}")
+        print(f"[hitting_pipeline] Could not fetch events: {exc}")
         return {}
+
+    if not isinstance(events, list):
+        return {}
+
+    result: dict[str, dict] = {}
+
+    def _book_rank(bm):
+        title = bm.get("title", "")
+        try:
+            return PREFERRED_BOOKS.index(title)
+        except ValueError:
+            return len(PREFERRED_BOOKS)
+
+    for event in events:
+        event_id       = event.get("id")
+        home_team_name = event.get("home_team", "")
+        away_team_name = event.get("away_team", "")
+        home_abbr = _TEAM_NAME_TO_ABBR.get(home_team_name.lower(), "")
+        away_abbr = _TEAM_NAME_TO_ABBR.get(away_team_name.lower(), "")
+
+        if not event_id:
+            continue
+        try:
+            odds = _odds_get(
+                f"/sports/{SPORT}/events/{event_id}/odds",
+                {"regions": REGIONS, "markets": BATTER_MARKET, "oddsFormat": FMT},
+            )
+            bookmakers = sorted(odds.get("bookmakers", []), key=_book_rank)
+
+            for bookmaker in bookmakers:
+                book = bookmaker.get("title", "")
+                for market in bookmaker.get("markets", []):
+                    if market.get("key") != BATTER_MARKET:
+                        continue
+                    outcomes = market.get("outcomes", [])
+                    # First pass: capture over lines
+                    for outcome in outcomes:
+                        name  = (outcome.get("description") or "").strip()
+                        point = outcome.get("point")
+                        price = outcome.get("price")
+                        label = (outcome.get("name") or "").lower()
+                        if not name or point is None or "over" not in label:
+                            continue
+                        key = name.lower()
+                        if key not in result:
+                            result[key] = {
+                                "line":           float(point),
+                                "over_odds":      int(price) if price is not None else -115,
+                                "under_odds":     -115,
+                                "book":           book,
+                                "home_team_abbr": home_abbr,
+                                "away_team_abbr": away_abbr,
+                            }
+                    # Second pass: fill under_odds
+                    for outcome in outcomes:
+                        name  = (outcome.get("description") or "").strip()
+                        price = outcome.get("price")
+                        label = (outcome.get("name") or "").lower()
+                        key   = name.lower()
+                        if (
+                            key in result
+                            and result[key]["book"] == book
+                            and "under" in label
+                            and price is not None
+                        ):
+                            result[key]["under_odds"] = int(price)
+        except Exception as exc:
+            print(f"  [hitting_pipeline] event {event_id}: {exc}")
+
+    print(f"[hitting_pipeline] {len(result)} batter hit lines fetched.")
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -476,67 +497,39 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
     """
     Build a live batter slate compatible with _run_hitting_slate() in app.py.
 
-    Steps:
-      1. Fetch DraftKings batter hit prop lines.
-      2. Resolve each batter name → MLBAM ID + current team.
-      3. Load today's team matchup map for home/away and opponent info.
-      4. Load recent Statcast (~90 days) and aggregate to batter-game level.
-      5. Compute feature vectors from rolling history.
-      6. Return slate list.
-
-    Returns [] gracefully if lines or Statcast data are unavailable.
+    Home/away context comes directly from the Odds API event (home_team_abbr /
+    away_team_abbr stored alongside each line), so the slate includes batters
+    from any date DK has props posted — today, tomorrow, or upcoming doubleheaders.
+    No matchup_map filtering: if DK has the prop listed, we include the batter.
     """
     if game_date is None:
         game_date = date.today().isoformat()
 
-    # ------------------------------------------------------------------
-    # Step 1 — DraftKings lines
-    # ------------------------------------------------------------------
+    # Step 1 — DraftKings lines (includes event home/away team abbrs)
     lines = _get_batter_hit_lines()
     if not lines:
         print("[hitting_pipeline] No batter hit lines available — returning empty slate.")
         return []
+    print(f"[hitting_pipeline] {len(lines)} DK hit lines. Loading Statcast (~90 days)...")
 
-    # ------------------------------------------------------------------
-    # Step 2 & 3 — MLBAM IDs + matchup map
-    # ------------------------------------------------------------------
-    from backend.app.data.mlb_api import get_team_matchups_today
-
-    try:
-        matchup_map = get_team_matchups_today(game_date)
-        print(f"[hitting_pipeline] {len(matchup_map)} team matchups loaded.")
-    except Exception as exc:
-        print(f"[hitting_pipeline] Could not fetch matchups: {exc} — home/away will be unknown.")
-        matchup_map = {}
-
-    # ------------------------------------------------------------------
-    # Step 4 — Statcast
-    # ------------------------------------------------------------------
-    print("[hitting_pipeline] Loading recent Statcast (~90 days)...")
+    # Step 2 — Statcast (needed for rolling features; proceed even if empty)
     t0 = time.time()
     sc = _load_recent_statcast(days=95)
-    if sc.empty:
-        print("[hitting_pipeline] Statcast data empty — returning empty slate.")
-        return []
     print(f"[hitting_pipeline] {len(sc):,} pitches loaded in {time.time()-t0:.1f}s.")
 
-    print("[hitting_pipeline] Aggregating batter-game rows...")
-    game_df = _aggregate_batter_games(sc)
-    print(f"[hitting_pipeline] {len(game_df):,} batter-game rows.")
-
-    # Index by batter_id for fast lookup
-    if game_df.empty:
-        batter_index: dict[int, pd.DataFrame] = {}
-    else:
+    if not sc.empty:
+        print("[hitting_pipeline] Aggregating batter-game rows...")
+        game_df = _aggregate_batter_games(sc)
         game_df["game_date"] = pd.to_datetime(game_df["game_date"])
-        batter_index = {
+        batter_index: dict[int, pd.DataFrame] = {
             int(bid): grp.reset_index(drop=True)
             for bid, grp in game_df.groupby("batter")
         }
+        print(f"[hitting_pipeline] {len(game_df):,} batter-game rows for {len(batter_index)} batters.")
+    else:
+        batter_index = {}
 
-    # ------------------------------------------------------------------
-    # Step 5 & 6 — Build slate rows
-    # ------------------------------------------------------------------
+    # Step 3 — Build slate rows
     slate: list[dict] = []
     skipped = 0
 
@@ -546,69 +539,70 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
         if player_entry is None:
             skipped += 1
             continue
-
         mlbam_id = player_entry["mlbam_id"]
 
-        # Fetch team if not yet cached
-        if not player_entry.get("team"):
+        # Determine home/away from event team data (no matchup_map needed)
+        home_abbr = line_info.get("home_team_abbr", "")
+        away_abbr = line_info.get("away_team_abbr", "")
+
+        # Get batter's team; try cache first then MLB Stats API
+        team_abbr = player_entry.get("team", "")
+        if not team_abbr:
             team_abbr = _get_current_team(mlbam_id)
             player_entry["team"] = team_abbr
-            _player_id_cache[name_lower]["team"] = team_abbr
+            if name_lower in _player_id_cache:
+                _player_id_cache[name_lower]["team"] = team_abbr
+
+        # Derive is_home and opponent from event context
+        if team_abbr and home_abbr and team_abbr == home_abbr:
+            is_home       = True
+            opponent_abbr = away_abbr or "???"
+            home_team_abbr = home_abbr
+        elif team_abbr and away_abbr and team_abbr == away_abbr:
+            is_home       = False
+            opponent_abbr = home_abbr or "???"
+            home_team_abbr = home_abbr
         else:
-            team_abbr = player_entry["team"]
+            # Unknown team or abbreviation mismatch — include with neutral defaults
+            is_home        = True
+            opponent_abbr  = away_abbr or "???"
+            home_team_abbr = home_abbr or team_abbr or ""
 
-        # Validate team has a game today
-        matchup = matchup_map.get(team_abbr)
-        if not matchup:
-            print(f"  [hitting_pipeline] {name_lower} ({team_abbr}): no game today — skipping stale DK prop.")
-            skipped += 1
-            continue
-
-        is_home        = bool(matchup.get("is_home", False))
-        opponent_abbr  = matchup.get("opponent_abbr", "???")
-
-        # Home team determines park factor
-        home_team_abbr = team_abbr if is_home else opponent_abbr
-
-        # Batter history from Statcast
+        # Compute features from Statcast history
         batter_history = batter_index.get(mlbam_id)
         if batter_history is None or batter_history.empty:
-            print(f"  [hitting_pipeline] {name_lower}: no Statcast history — using NaN features.")
             feats = {
-                "h_per_pa_last7":         np.nan,
-                "h_per_pa_last14":        np.nan,
-                "h_per_pa_last30":        np.nan,
-                "h_per_pa_season":        np.nan,
-                "barrel_rate_last30":     np.nan,
-                "hard_hit_pct_last30":    np.nan,
-                "xba_last30":             np.nan,
-                "avg_exit_velo_last30":   np.nan,
-                "sweet_spot_pct_last30":  np.nan,
-                "pa_per_game_last14":     np.nan,
-                "h_per_pa_vs_hand_last60": np.nan,
-                "opp_k_pct":              np.nan,
+                "h_per_pa_last7":           np.nan,
+                "h_per_pa_last14":          np.nan,
+                "h_per_pa_last30":          np.nan,
+                "h_per_pa_season":          np.nan,
+                "barrel_rate_last30":       np.nan,
+                "hard_hit_pct_last30":      np.nan,
+                "xba_last30":               np.nan,
+                "avg_exit_velo_last30":     np.nan,
+                "sweet_spot_pct_last30":    np.nan,
+                "pa_per_game_last14":       np.nan,
+                "h_per_pa_vs_hand_last60":  np.nan,
+                "opp_k_pct":               np.nan,
                 "opp_hard_hit_pct_allowed": np.nan,
-                "opp_xba_allowed":        np.nan,
+                "opp_xba_allowed":          np.nan,
                 "park_factor": float(_PARK_FACTORS.get(home_team_abbr, 1.0)),
                 "is_home":     float(int(is_home)),
             }
         else:
-            # Pitcher handedness — we don't know today's starter here, so use NaN for platoon
             feats = _compute_batter_features(
                 batter_id      = mlbam_id,
                 batter_history = batter_history,
-                pitcher_hand   = None,     # opp pitcher not resolved here; NaN for platoon
+                pitcher_hand   = None,
                 is_home        = is_home,
                 home_team_abbr = home_team_abbr,
             )
 
-        # Construct display name from dict key (title-case)
         display_name = " ".join(w.capitalize() for w in name_lower.split())
-
         slate.append({
             "batter_name":   display_name,
             "mlbam_id":      mlbam_id,
-            "team":          team_abbr,
+            "team":          team_abbr or "???",
             "opponent_abbr": opponent_abbr,
             "is_home":       is_home,
             "line":          line_info["line"],
@@ -618,7 +612,7 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
         })
 
     print(
-        f"[hitting_pipeline] Slate built: {len(slate)} batters "
-        f"({skipped} skipped — no game today or ID not found)."
+        f"[hitting_pipeline] Slate: {len(slate)} batters "
+        f"({skipped} skipped — MLBAM ID not found)."
     )
     return slate
