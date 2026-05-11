@@ -119,9 +119,51 @@ _sc_month_cache: dict[tuple, pd.DataFrame] = {}
 # MLB Stats API game log cache: {mlbam_id: [{"date", "H", "PA", "AB"}]}
 _mlb_log_cache: dict[int, list[dict]] = {}
 
+# Batter name → MLBAM ID resolved from season leaderboard (no pybaseball)
+_batter_id_cache: dict[str, int] = {}
+
 
 def _norm(name: str) -> str:
     return unicodedata.normalize("NFD", name).encode("ascii", "ignore").decode().lower().strip()
+
+
+def _resolve_batter_mlbam(name_lower: str) -> int:
+    """
+    Resolve a batter name to an MLBAM ID using the MLB Stats API season leaderboard.
+    Same approach as search_pitcher() — free, no pybaseball.
+    Returns 0 if no match found.
+    """
+    if name_lower in _batter_id_cache:
+        return _batter_id_cache[name_lower]
+
+    try:
+        try:
+            from backend.app.data.mlb_api import get_season_batter_ids
+        except ImportError:
+            from app.data.mlb_api import get_season_batter_ids
+
+        season   = date.today().year
+        batters  = get_season_batter_ids(season, min_pa=1)
+        norm_q   = _norm(name_lower)
+        last_q   = norm_q.split()[-1] if norm_q else ""
+
+        # Exact match first
+        for b in batters:
+            if _norm(b["full_name"]) == norm_q:
+                _batter_id_cache[name_lower] = b["mlbam_id"]
+                return b["mlbam_id"]
+
+        # Last-name match fallback
+        for b in batters:
+            norm_full = _norm(b["full_name"])
+            if last_q and norm_full.split()[-1] == last_q:
+                _batter_id_cache[name_lower] = b["mlbam_id"]
+                return b["mlbam_id"]
+    except Exception as exc:
+        print(f"  [hitting_pipeline] MLBAM lookup failed for '{name_lower}': {exc}")
+
+    _batter_id_cache[name_lower] = 0
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -523,7 +565,8 @@ def build_live_hitting_slate(
             is_home        = lineup_entry["is_home"]
             home_team_abbr = lineup_entry["home_team_abbr"]
         else:
-            mlbam_id       = 0
+            # No lineup yet — resolve MLBAM ID from season leaderboard (free MLB API)
+            mlbam_id       = _resolve_batter_mlbam(name_lower)
             team_abbr      = home_abbr or "???"
             opponent_abbr  = away_abbr or "???"
             is_home        = True

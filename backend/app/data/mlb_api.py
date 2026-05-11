@@ -79,6 +79,34 @@ def get_pitcher_game_log(mlbam_id: int, season: int) -> list[dict]:
     return rows
 
 
+def get_season_batter_ids(season: int, min_pa: int = 50) -> list[dict]:
+    """
+    Returns list of {mlbam_id, full_name, team, PA} for all batters with >= min_pa
+    plate appearances. Used for name→MLBAM resolution without pybaseball.
+    """
+    data = _get("/stats", {
+        "stats":      "season",
+        "group":      "hitting",
+        "season":     season,
+        "sportId":    1,
+        "playerPool": "All",
+        "limit":      1000,
+    })
+    results = []
+    for s in data.get("stats", [{}])[0].get("splits", []):
+        stat = s.get("stat", {})
+        pa = int(stat.get("plateAppearances", 0))
+        if pa >= min_pa:
+            p = s.get("player", {})
+            results.append({
+                "mlbam_id":  p.get("id"),
+                "full_name": p.get("fullName", ""),
+                "team":      s.get("team", {}).get("abbreviation", ""),
+                "PA":        pa,
+            })
+    return results
+
+
 def get_batter_game_log(mlbam_id: int, season: int) -> list[dict]:
     """
     Returns game-level hitting stats for one batter in one season.

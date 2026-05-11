@@ -58,6 +58,11 @@ function Chip({ label, value, color = 'var(--text-secondary)' }) {
 function HittingPickDetail({ pick }) {
   const f = pick.features ?? {};
   const edgeColor = (pick.edge_pct ?? 0) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+  const isUnder = pick.recommendation === 'UNDER';
+  const modelProbLabel   = isUnder ? 'Model P(Under)'   : 'Model P(Over)';
+  const impliedProbLabel = isUnder ? 'Implied P(Under)' : 'Implied P(Over)';
+  const modelProbVal   = pick.model_prob_over   != null ? (isUnder ? 1 - pick.model_prob_over   : pick.model_prob_over)   : null;
+  const impliedProbVal = pick.implied_prob_over != null ? (isUnder ? 1 - pick.implied_prob_over : pick.implied_prob_over) : null;
 
   return (
     <motion.div
@@ -118,15 +123,15 @@ function HittingPickDetail({ pick }) {
             <span style={{ fontWeight: 700 }}>{pick.predicted_hits}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 4 }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Model P(Over)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{modelProbLabel}</span>
             <span style={{ fontWeight: 700, color: ACCENT }}>
-              {pick.model_prob_over != null ? `${(pick.model_prob_over * 100).toFixed(1)}%` : '—'}
+              {modelProbVal != null ? `${(modelProbVal * 100).toFixed(1)}%` : '—'}
             </span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 4 }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Implied P(Over)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{impliedProbLabel}</span>
             <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>
-              {pick.implied_prob_over != null ? `${(pick.implied_prob_over * 100).toFixed(1)}%` : '—'}
+              {impliedProbVal != null ? `${(impliedProbVal * 100).toFixed(1)}%` : '—'}
             </span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
@@ -202,10 +207,15 @@ export default function HittingPickCard({ pick, index }) {
   if (pick.has_line === false) return <NoLineBatterCard pick={pick} index={index} />;
 
   const conf = CONF_COLORS[pick.confidence] ?? CONF_COLORS.LOW;
-  const edgeVal   = parseFloat(pick.edge_pct_display);
-  const edgeColor = edgeVal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
-  const modelPct   = Math.round(pick.model_prob_over * 100);
-  const impliedPct = Math.round(pick.implied_prob_over * 100);
+  const edgeVal    = parseFloat(pick.edge_pct_display);
+  const edgeColor  = edgeVal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+  const isUnder    = pick.recommendation === 'UNDER';
+  const modelPct   = isUnder
+    ? Math.round((1 - pick.model_prob_over) * 100)
+    : Math.round(pick.model_prob_over * 100);
+  const impliedPct = isUnder
+    ? Math.round((1 - pick.implied_prob_over) * 100)
+    : Math.round(pick.implied_prob_over * 100);
 
   return (
     <motion.div
