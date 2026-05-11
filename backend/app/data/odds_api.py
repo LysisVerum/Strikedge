@@ -44,8 +44,8 @@ def get_credits_remaining() -> int | None:
 
 
 def invalidate_player_prop_cache():
-    """Clear cached player-prop (batter/pitcher) responses so next call hits the API."""
-    keys = [k for k in list(_cache.keys()) if "/events/" in k or "batter_hits" in k]
+    """Clear cached player-prop and events-list responses so next call hits the API."""
+    keys = [k for k in list(_cache.keys()) if "/events" in k or "batter_hits" in k]
     for k in keys:
         _cache.pop(k, None)
 

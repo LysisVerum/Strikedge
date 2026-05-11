@@ -538,8 +538,14 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
     lines = _get_batter_hit_lines()
     print(f"[hitting_pipeline] {len(lines)} DK hit lines fetched.")
 
-    # Step 2 — Resolve Odds API names to MLBAM IDs → {mlbam_id: line_info}
-    lines_by_id: dict[int, dict] = {}
+    # Step 2 — Build name-keyed lookup (always works) + best-effort MLBAM ID lookup
+    lines_by_name: dict[str, dict] = {}   # _norm(name) -> line_info
+    lines_by_id:   dict[int, dict] = {}   # mlbam_id -> line_info (pybaseball, may be empty)
+
+    for name_lower, line_info in lines.items():
+        lines_by_name[_norm(name_lower)] = line_info
+
+    # Attempt MLBAM resolution; don't block/fail the pipeline if pybaseball is down
     for name_lower, line_info in lines.items():
         entry = _resolve_player_id(name_lower)
         if entry:
@@ -598,7 +604,17 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
             opponent_abbr  = batter["opponent_abbr"]
             display_name   = batter["full_name"]
 
+            # Try MLBAM ID match first, fall back to normalized name, then last name
             line_info = lines_by_id.get(mlbam_id)
+            if line_info is None:
+                norm = _norm(display_name)
+                line_info = lines_by_name.get(norm)
+            if line_info is None:
+                last = _norm(display_name).split()[-1] if display_name else ""
+                for k, v in lines_by_name.items():
+                    if last and k.split()[-1] == last:
+                        line_info = v
+                        break
             has_line  = line_info is not None
             if not has_line:
                 no_line_count += 1
@@ -635,22 +651,22 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
 
     else:
         # ── Odds API-only fallback (no confirmed lineups yet) ──────────────
-        skipped = 0
+        no_id_count = 0
         for name_lower, line_info in lines.items():
             player_entry = _resolve_player_id(name_lower)
-            if player_entry is None:
-                skipped += 1
-                continue
-            mlbam_id = player_entry["mlbam_id"]
+            mlbam_id     = player_entry["mlbam_id"] if player_entry else 0
+            if not player_entry:
+                no_id_count += 1
 
             home_abbr = line_info.get("home_team_abbr", "")
             away_abbr = line_info.get("away_team_abbr", "")
-            team_abbr = player_entry.get("team", "")
-            if not team_abbr:
+            team_abbr = player_entry.get("team", "") if player_entry else ""
+            if not team_abbr and mlbam_id:
                 team_abbr = _get_current_team(mlbam_id)
-                player_entry["team"] = team_abbr
-                if name_lower in _player_id_cache:
-                    _player_id_cache[name_lower]["team"] = team_abbr
+                if player_entry:
+                    player_entry["team"] = team_abbr
+                    if name_lower in _player_id_cache:
+                        _player_id_cache[name_lower]["team"] = team_abbr
 
             if team_abbr and home_abbr and team_abbr == home_abbr:
                 is_home        = True
@@ -665,7 +681,7 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
                 opponent_abbr  = away_abbr or "???"
                 home_team_abbr = home_abbr or team_abbr or ""
 
-            batter_history = batter_index.get(mlbam_id)
+            batter_history = batter_index.get(mlbam_id) if mlbam_id else None
             if batter_history is None or batter_history.empty:
                 feats = _nan_feats(home_team_abbr, is_home)
             else:
@@ -693,7 +709,7 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
 
         print(
             f"[hitting_pipeline] Slate: {len(slate)} batters "
-            f"({skipped} skipped — MLBAM ID not found)."
+            f"({no_id_count} without resolved MLBAM ID — still included with NaN features)."
         )
 
     return slate
