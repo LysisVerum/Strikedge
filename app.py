@@ -1622,17 +1622,22 @@ def hitting_performance():
     if not _current_email():
         abort(401, "Sign in to view performance data")
 
-    backtest_path = Path(__file__).parent / "backend" / "artifacts" / "hitting_backtest.json"
-    if not backtest_path.exists():
-        return jsonify({"error": "No hitting backtest yet. Run: cd backend && python -m train.backtest_hitting"}), 404
-
-    bt = json.loads(backtest_path.read_text())
-
-    # Build a performance-compatible response from the accuracy backtest
-    by_month_accuracy = bt.get("by_month", [])
+    # Optional model summary — compact JSON without records array
+    _summary_candidates = [
+        Path(__file__).parent / "backend" / "artifacts" / "hitting_backtest_summary.json",
+        Path(__file__).parent / "backend" / "artifacts" / "hitting_backtest.json",
+    ]
+    bt = None
+    for p in _summary_candidates:
+        if p.exists():
+            try:
+                bt = json.loads(p.read_text())
+            except Exception:
+                pass
+            break
 
     # Live bet performance from hitting_prediction_log
-    live_rec  = get_hitting_live_record()
+    live_rec      = get_hitting_live_record()
     live_resolved = [r for r in live_rec.get("records", []) if r.get("outcome") and (r.get("bet") or 0) > 0]
 
     wins   = sum(1 for r in live_resolved if r["outcome"] == "WIN")
@@ -1668,18 +1673,24 @@ def hitting_performance():
             m["roi"] = round(m["pnl"] / m["wagered"] * 100, 1)
     monthly = sorted(monthly_map.values(), key=lambda x: x["month"])
 
-    # Confidence breakdown from live + backtest
-    by_conf = bt.get("by_confidence", {})
-    byTier = {}
-    for tier, stats in by_conf.items():
-        wr = stats.get("win_rate", 0) * 100
-        byTier[tier] = {
-            "bets":    stats.get("n", 0),
-            "wins":    round(stats.get("n", 0) * stats.get("win_rate", 0)),
-            "losses":  round(stats.get("n", 0) * (1 - stats.get("win_rate", 0))),
-            "winRate": f"{wr:.1f}%",
-            "roi":     "—",
-        }
+    # Confidence breakdown from live bets
+    byTier: dict = {}
+    for r in live_resolved:
+        tier = r.get("confidence", "LOW") or "LOW"
+        if tier not in byTier:
+            byTier[tier] = {"bets": 0, "wins": 0, "losses": 0, "pushes": 0, "pnl": 0.0, "wagered": 0.0}
+        byTier[tier]["bets"]   += 1
+        byTier[tier]["wins"]   += 1 if r["outcome"] == "WIN"  else 0
+        byTier[tier]["losses"] += 1 if r["outcome"] == "LOSS" else 0
+        byTier[tier]["pushes"] += 1 if r["outcome"] == "PUSH" else 0
+        byTier[tier]["pnl"]    += r.get("pnl") or 0
+        byTier[tier]["wagered"] += r.get("bet") or 0
+    for tier, stats in byTier.items():
+        denom    = stats["wins"] + stats["losses"]
+        wr       = (stats["wins"] / denom * 100) if denom > 0 else 0
+        roi_tier = (stats["pnl"] / stats["wagered"] * 100) if stats["wagered"] > 0 else 0
+        stats["winRate"] = f"{wr:.1f}%"
+        stats["roi"]     = f"{'+' if roi_tier >= 0 else ''}{roi_tier:.1f}%"
 
     current_month = date.today().strftime("%Y-%m")
     recent_bets = [
@@ -1698,6 +1709,16 @@ def hitting_performance():
         if (r.get("date") or "")[:7] == current_month
     ][:20]
 
+    # Include model accuracy quick-stats from summary if available
+    model_accuracy = None
+    if bt:
+        model_accuracy = {
+            "mae":         bt.get("overall", {}).get("mae"),
+            "within_half": round(bt.get("error_distribution", {}).get("within_0.50", 0) * 100, 1),
+            "within_one":  round(bt.get("error_distribution", {}).get("within_1.00", 0) * 100, 1),
+            "test_rows":   bt.get("test_rows"),
+        }
+
     return jsonify({
         "overall": {
             "bets":    len(live_resolved),
@@ -1709,20 +1730,13 @@ def hitting_performance():
             "pnl":     round(total_pnl, 2),
             "wagered": round(total_wagered, 2),
         },
-        "byTier":        byTier,
-        "monthly":       monthly,
+        "byTier":         byTier,
+        "monthly":        monthly,
         "cumulative_pnl": cumulative_pnl,
-        "bankroll":      1000,
-        "kelly_frac":    0.25,
-        "recent_bets":   recent_bets,
-        "model_accuracy": {
-            "mae":         bt["overall"].get("mae"),
-            "within_half": round(bt["error_distribution"].get("within_0.50", 0) * 100, 1),
-            "within_one":  round(bt["error_distribution"].get("within_1.00", 0) * 100, 1),
-            "by_month":    by_month_accuracy,
-            "by_line":     bt.get("by_line", {}),
-            "test_rows":   bt.get("test_rows"),
-        },
+        "bankroll":       1000,
+        "kelly_frac":     0.25,
+        "recent_bets":    recent_bets,
+        "model_accuracy": model_accuracy,
     })
 
 
@@ -1800,18 +1814,29 @@ def hitting_skipped():
 def hitting_accuracy():
     if _current_tier() != "premium":
         abort(403, "Premium required")
-    backtest_path = Path(__file__).parent / "backend" / "artifacts" / "hitting_backtest.json"
-    if not backtest_path.exists():
-        return jsonify({"records": [], "mae": None, "within_half": None, "within_one": None})
-    bt = json.loads(backtest_path.read_text())
+    _candidates = [
+        Path(__file__).parent / "backend" / "artifacts" / "hitting_backtest_summary.json",
+        Path(__file__).parent / "backend" / "artifacts" / "hitting_backtest.json",
+    ]
+    bt = None
+    for p in _candidates:
+        if p.exists():
+            try:
+                bt = json.loads(p.read_text())
+            except Exception:
+                pass
+            break
+    if bt is None:
+        return jsonify({"mae": None, "within_half": None, "within_one": None,
+                        "by_month": [], "by_line": {}, "by_confidence": {}, "test_rows": None})
     return jsonify({
-        "mae":         bt["overall"].get("mae"),
-        "within_half": round(bt["error_distribution"].get("within_0.50", 0) * 100, 1),
-        "within_one":  round(bt["error_distribution"].get("within_1.00", 0) * 100, 1),
-        "by_month":    bt.get("by_month", []),
-        "by_line":     bt.get("by_line", {}),
+        "mae":           bt.get("overall", {}).get("mae"),
+        "within_half":   round(bt.get("error_distribution", {}).get("within_0.50", 0) * 100, 1),
+        "within_one":    round(bt.get("error_distribution", {}).get("within_1.00", 0) * 100, 1),
+        "by_month":      bt.get("by_month", []),
+        "by_line":       bt.get("by_line", {}),
         "by_confidence": bt.get("by_confidence", {}),
-        "test_rows":   bt.get("test_rows"),
+        "test_rows":     bt.get("test_rows"),
     })
 
 

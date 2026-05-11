@@ -213,10 +213,8 @@ export default function HittingPerformancePanel() {
   );
   if (error) return (
     <div style={{ padding: '1rem 1.25rem', borderRadius: 10, background: ACCENT_BG, border: `1px solid ${ACCENT_BORDER}`, fontSize: '0.85rem', color: ACCENT }}>
-      <strong>Backtest data unavailable.</strong>
-      <div style={{ marginTop: 6, color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-        cd backend<br />python -m train.backtest_hitting
-      </div>
+      <strong>Performance data unavailable.</strong>
+      <div style={{ marginTop: 6, color: 'var(--text-muted)', fontSize: '0.8rem' }}>{error}</div>
     </div>
   );
 
@@ -252,37 +250,20 @@ export default function HittingPerformancePanel() {
 
       {view === 'overview' && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem', marginBottom: '2rem' }}>
-            <StatBox label="Win Rate"   value={overall.winRate ?? '—'}   color="var(--accent-green)" delay={0} />
-            <StatBox label="ROI"        value={roiStr}                    color={roiColor}            delay={0.05} />
-            <StatBox label="P&L"        value={`${(overall.pnl ?? 0) >= 0 ? '+$' : '-$'}${Math.abs(overall.pnl ?? 0).toFixed(0)}`} color={pnlColor} delay={0.1} />
-            <StatBox label="Total Bets" value={overall.bets ?? 0} sub={`${overall.wins ?? 0}W · ${overall.losses ?? 0}L`} delay={0.15} />
-          </div>
-
-          {/* Model accuracy quick stats */}
-          {accuracy.mae != null && (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
-              style={{ padding: '1rem 1.25rem', borderRadius: 10, border: `1px solid ${ACCENT_BORDER}`, background: ACCENT_BG, marginBottom: '1.25rem',
-                display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '1rem' }}>
-              <div>
-                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Hit MAE</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: ACCENT, fontFamily: 'Space Grotesk' }}>{accuracy.mae.toFixed(3)} H</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Within 0.5H</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-green)', fontFamily: 'Space Grotesk' }}>{accuracy.within_half}%</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Within 1H</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-green)', fontFamily: 'Space Grotesk' }}>{accuracy.within_one}%</div>
-              </div>
-              {accuracy.test_rows && (
-                <div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Training rows</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-secondary)', fontFamily: 'Space Grotesk' }}>{(accuracy.test_rows / 1000).toFixed(0)}K</div>
-                </div>
-              )}
+          {overall.bets === 0 ? (
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+              style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.75rem', opacity: 0.3 }}>📊</div>
+              <p style={{ fontSize: '0.88rem' }}>No settled hit prop bets yet.</p>
+              <p style={{ fontSize: '0.78rem', marginTop: '0.4rem', opacity: 0.75 }}>Results will appear here as picks resolve. Check the Accuracy tab for model backtest metrics.</p>
             </motion.div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem', marginBottom: '2rem' }}>
+              <StatBox label="Win Rate"   value={overall.winRate ?? '—'}   color="var(--accent-green)" delay={0} />
+              <StatBox label="ROI"        value={roiStr}                    color={roiColor}            delay={0.05} />
+              <StatBox label="P&L"        value={`${(overall.pnl ?? 0) >= 0 ? '+$' : '-$'}${Math.abs(overall.pnl ?? 0).toFixed(0)}`} color={pnlColor} delay={0.1} />
+              <StatBox label="Total Bets" value={overall.bets ?? 0} sub={`${overall.wins ?? 0}W · ${overall.losses ?? 0}L`} delay={0.15} />
+            </div>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
