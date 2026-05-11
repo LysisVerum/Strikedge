@@ -133,6 +133,16 @@ export default function Dashboard() {
     finally { setHLoading(false); }
   };
 
+  const handleHittingRefresh = async () => {
+    setHLoading(true); setHError(null);
+    try {
+      await api.hittingRefresh();
+      // Pipeline re-runs in a background thread; wait for it before re-fetching
+      await new Promise(r => setTimeout(r, 8000));
+      await fetchHittingPicks();
+    } catch (e) { setHError(e.message); setHLoading(false); }
+  };
+
   const fetchHittingHistory = async () => {
     setHHistoryLoading(true);
     try {
@@ -410,9 +420,9 @@ export default function Dashboard() {
                       {upgrading ? 'Redirecting…' : 'Go Premium'}
                     </motion.button>
                   )}
-                  <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={fetchHittingPicks}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.9rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: '0.82rem', cursor: 'pointer' }}>
-                    <RefreshCw size={13} /> Refresh
+                  <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={handleHittingRefresh} disabled={hLoading}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.9rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: hLoading ? 'var(--text-muted)' : 'var(--text-secondary)', fontSize: '0.82rem', cursor: hLoading ? 'wait' : 'pointer' }}>
+                    <RefreshCw size={13} style={{ animation: hLoading ? 'spin 1s linear infinite' : 'none' }} /> {hLoading ? 'Fetching…' : 'Refresh'}
                   </motion.button>
                   <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={logout} title="Sign out"
                     style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.9rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', fontSize: '0.82rem', cursor: 'pointer' }}>

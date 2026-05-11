@@ -47,11 +47,12 @@ from backend.app.data.mlb_api import (
     get_pitcher_multi_season_log,
     get_team_id_map,
     search_pitcher,
+    invalidate_schedule_cache,
     _ascii,
 )
 from backend.app.data.statcast_agg import get_pitcher_statcast_range, pitch_mix_features, invalidate_current_month
 from backend.app.data.pipeline import build_inference_row
-from backend.app.data.odds_api import get_sp_strikeout_lines, match_line_to_starter, get_credits_remaining
+from backend.app.data.odds_api import get_sp_strikeout_lines, match_line_to_starter, get_credits_remaining, invalidate_player_prop_cache
 from backend.app.data.umpire import get_todays_umpires
 from backend.app.data.prediction_log import (
     log_predictions, get_live_record, update_results, delete_prediction,
@@ -762,10 +763,10 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
         try:
             live_h_slate = build_live_hitting_slate(game_date) or []
         except Exception as e:
-            print(f"[mlbet] hitting_pipeline error: {e} — using demo slate")
+            print(f"[mlbet] hitting_pipeline error: {e}")
             live_h_slate = []
         try:
-            h_picks, h_all = _run_hitting_slate(live_h_slate or _HITTING_DEMO_SLATE)
+            h_picks, h_all = _run_hitting_slate(live_h_slate)
         except Exception as e:
             print(f"[mlbet] _run_hitting_slate error: {e}")
             h_picks, h_all = [], []
@@ -1554,6 +1555,35 @@ def predict():
 def force_refresh():
     # force_odds_refresh=True so a manual refresh always pulls fresh lines from the API
     threading.Thread(target=refresh_data, kwargs={"force_odds_refresh": True}, daemon=True).start()
+    return jsonify({"status": "refresh started"})
+
+
+def _run_hitting_refresh():
+    """Re-run hitting pipeline with fresh cache — called from /api/hitting/refresh thread."""
+    invalidate_player_prop_cache()
+    invalidate_schedule_cache()
+    game_date = date.today().isoformat()
+    try:
+        live_h_slate = build_live_hitting_slate(game_date) or []
+    except Exception as e:
+        print(f"[hitting_refresh] pipeline error: {e}")
+        live_h_slate = []
+    try:
+        h_picks, h_all = _run_hitting_slate(live_h_slate)
+    except Exception as e:
+        print(f"[hitting_refresh] _run_hitting_slate error: {e}")
+        h_picks, h_all = [], []
+    _hitting_store["picks"]         = h_picks
+    _hitting_store["all_processed"] = h_all
+    _hitting_store["last_update"]   = datetime.now().isoformat(timespec="seconds")
+    print(f"[hitting_refresh] {len(h_picks)} hitting picks ready ({len(live_h_slate)} slate rows).")
+
+
+@app.post("/api/hitting/refresh")
+def hitting_force_refresh():
+    if not _current_email():
+        abort(401)
+    threading.Thread(target=_run_hitting_refresh, daemon=True).start()
     return jsonify({"status": "refresh started"})
 
 

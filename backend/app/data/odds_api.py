@@ -43,6 +43,13 @@ def get_credits_remaining() -> int | None:
     return _credits_remaining
 
 
+def invalidate_player_prop_cache():
+    """Clear cached player-prop (batter/pitcher) responses so next call hits the API."""
+    keys = [k for k in list(_cache.keys()) if "/events/" in k or "batter_hits" in k]
+    for k in keys:
+        _cache.pop(k, None)
+
+
 def _api_key() -> str:
     key = os.getenv("ODDS_API_KEY", "")
     if not key or key == "your_key_here":

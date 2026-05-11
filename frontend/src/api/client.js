@@ -35,6 +35,7 @@ export const api = {
   hittingLiveRecord:  ()     => request('/hitting/live-record'),
   hittingSkipped:     ()     => request('/hitting/skipped'),
   hittingAccuracy:    ()     => request('/hitting/accuracy'),
+  hittingRefresh:     ()     => request('/hitting/refresh', { method: 'POST' }),
   hittingDeleteLine:  (body) => request('/hitting/log-lines', { method: 'DELETE', body: JSON.stringify(body) }),
 
   // Auth

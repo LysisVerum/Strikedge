@@ -248,6 +248,13 @@ def get_team_matchups_today(game_date: str = None) -> dict[str, dict]:
 # Today's confirmed batting lineups
 # ---------------------------------------------------------------------------
 
+def invalidate_schedule_cache():
+    """Remove cached schedule/lineup entries so the next call fetches fresh data."""
+    keys = [k for k in list(_cache.keys()) if "/schedule" in k]
+    for k in keys:
+        _cache.pop(k, None)
+
+
 def get_todays_lineup_batters(game_date: str = None) -> list[dict]:
     """
     Returns all confirmed batting lineup members for today's games.
