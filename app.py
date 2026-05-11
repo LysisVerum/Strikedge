@@ -1840,6 +1840,90 @@ def hitting_skipped():
     return jsonify(records)
 
 
+@app.get("/api/hitting/debug")
+def hitting_debug():
+    """
+    Probe the Odds API to see exactly what batter hit lines are available.
+    Checks events, available markets on one sample event, and credit usage.
+    Only fetches odds for the FIRST event to keep credit cost minimal (~2 credits total).
+    """
+    if not _current_email():
+        abort(401)
+
+    from backend.app.data.odds_api import _get as _odds_get, get_credits_remaining, invalidate_player_prop_cache
+    invalidate_player_prop_cache()  # always fetch fresh for debug
+
+    SPORT   = "baseball_mlb"
+    REGIONS = "us"
+    FMT     = "american"
+    result  = {"events": [], "sample_markets": {}, "batter_hits_sample": [], "credits_remaining": None}
+
+    try:
+        events = _odds_get(f"/sports/{SPORT}/events", {"regions": REGIONS})
+        result["events"] = [
+            {"id": e.get("id"), "home": e.get("home_team"), "away": e.get("away_team"),
+             "commence": e.get("commence_time")}
+            for e in (events if isinstance(events, list) else [])
+        ]
+        result["event_count"] = len(result["events"])
+    except Exception as exc:
+        result["events_error"] = str(exc)
+        result["credits_remaining"] = get_credits_remaining()
+        return jsonify(result)
+
+    # Probe only the first event to minimise credit burn
+    if result["events"]:
+        first_id = result["events"][0]["id"]
+
+        # Try batter_hits market
+        try:
+            odds = _odds_get(f"/sports/{SPORT}/events/{first_id}/odds",
+                             {"regions": REGIONS, "markets": "batter_hits", "oddsFormat": FMT})
+            bookmakers = odds.get("bookmakers", [])
+            result["sample_markets"]["batter_hits"] = {
+                "bookmaker_count": len(bookmakers),
+                "bookmakers": [b.get("title") for b in bookmakers],
+                "outcome_count": sum(
+                    len(m.get("outcomes", []))
+                    for b in bookmakers for m in b.get("markets", [])
+                    if m.get("key") == "batter_hits"
+                ),
+            }
+            # Pull first 5 player names as a sample
+            names = []
+            for bm in bookmakers:
+                for mkt in bm.get("markets", []):
+                    if mkt.get("key") == "batter_hits":
+                        for o in mkt.get("outcomes", []):
+                            desc = o.get("description") or o.get("name", "")
+                            if desc and desc not in names:
+                                names.append(desc)
+            result["batter_hits_sample"] = names[:10]
+        except Exception as exc:
+            result["sample_markets"]["batter_hits_error"] = str(exc)
+
+        # Also try alternate market key spellings DK might use
+        for alt_key in ("player_hits", "batter_hits_alternate", "batter_total_hits"):
+            try:
+                odds2 = _odds_get(f"/sports/{SPORT}/events/{first_id}/odds",
+                                  {"regions": REGIONS, "markets": alt_key, "oddsFormat": FMT})
+                bms = odds2.get("bookmakers", [])
+                if bms:
+                    result["sample_markets"][alt_key] = {
+                        "bookmaker_count": len(bms),
+                        "outcome_count": sum(
+                            len(m.get("outcomes", []))
+                            for b in bms for m in b.get("markets", [])
+                            if m.get("key") == alt_key
+                        ),
+                    }
+            except Exception:
+                pass
+
+    result["credits_remaining"] = get_credits_remaining()
+    return jsonify(result)
+
+
 @app.get("/api/hitting/accuracy")
 def hitting_accuracy():
     if _current_tier() != "premium":
