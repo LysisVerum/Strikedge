@@ -95,94 +95,95 @@ function MonthBar({ month, roi, maxRoi, index }) {
 function AccuracyView({ data }) {
   if (!data) return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading...</div>;
 
-  const byLine = data.by_line ?? {};
-  const byConf = data.by_confidence ?? {};
-  const byMonth = data.by_month ?? [];
+  const batters = (data.by_batter ?? []).filter(b => b.games >= 10);
 
-  // Monthly MAE line chart
-  const W = 500, H = 80;
-  const maes = byMonth.map(m => m.mae).filter(Boolean);
-  const minM = Math.min(...maes) * 0.95;
-  const maxM = Math.max(...maes) * 1.05;
-  const toX  = i => (i / Math.max(byMonth.length - 1, 1)) * W;
-  const toY  = v => H - ((v - minM) / (maxM - minM || 1)) * H;
-  const pts  = byMonth.filter(m => m.mae).map((m, i) => `${toX(i)},${toY(m.mae)}`).join(' ');
+  // Scatter bounds — season H totals: predicted vs actual
+  const W = 400, H = 220;
+  const allTotals = batters.flatMap(b => [b.pred, b.actual]);
+  const minV = allTotals.length ? Math.max(0, Math.min(...allTotals) * 0.9) : 0;
+  const maxV = allTotals.length ? Math.max(...allTotals) * 1.05 : 200;
+  const toX = v => ((v - minV) / (maxV - minV)) * W;
+  const toY = v => H - ((v - minV) / (maxV - minV)) * H;
 
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem', marginBottom: '1.5rem' }}>
-        <StatBox label="Hit MAE" value={data.mae != null ? `${data.mae.toFixed(3)} H` : '—'} sub="per plate appearance" color={ACCENT} delay={0} />
-        <StatBox label="Within 0.5 H" value={data.within_half != null ? `${data.within_half}%` : '—'} color="var(--accent-green)" delay={0.05} />
-        <StatBox label="Within 1 H" value={data.within_one != null ? `${data.within_one}%` : '—'}  color="var(--accent-green)" delay={0.1} />
-        <StatBox label="Test rows" value={data.test_rows != null ? data.test_rows.toLocaleString() : '—'} sub="batter-games" delay={0.15} />
+        <StatBox label="Season % MAE" value={data.season_pct_mae != null ? `${data.season_pct_mae}%` : '—'}
+          sub={batters.length ? `${batters.length} batters` : 'need 10+ games'}
+          color={ACCENT} delay={0} />
+        <StatBox label="Game MAE" value={data.mae != null ? `${data.mae.toFixed(2)} H` : '—'}
+          sub="per game" delay={0.05} />
+        <StatBox label="Within 0.5H" value={data.within_half != null ? `${data.within_half}%` : '—'} color="var(--accent-green)" delay={0.1} />
+        <StatBox label="Within 1H"   value={data.within_one  != null ? `${data.within_one}%`  : '—'} color="var(--accent-green)" delay={0.15} />
       </div>
 
-      {/* By-line accuracy */}
-      {Object.keys(byLine).length > 0 && (
+      {batters.length > 1 && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
           style={{ padding: '1.25rem', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg-card)', marginBottom: '1.25rem' }}>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.85rem' }}>
-            Model Calibration by Line
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem' }}>
-            {Object.entries(byLine).map(([line, stats]) => (
-              <div key={line} style={{ padding: '0.85rem', borderRadius: 10, border: `1px solid ${ACCENT_BORDER}`, background: ACCENT_BG, textAlign: 'center' }}>
-                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>O/U {line}</div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 2 }}>
-                  Model: <span style={{ color: ACCENT, fontWeight: 700 }}>{(stats.model_prob_over * 100).toFixed(1)}%</span>
-                </div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                  Actual: <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{(stats.actual_over_rate * 100).toFixed(1)}%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Monthly MAE chart */}
-      {byMonth.length > 1 && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-          style={{ padding: '1.25rem', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg-card)', marginBottom: '1.25rem' }}>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
-            MAE by Month
+            Season H Total: Predicted vs Actual (one dot per batter, 10+ games)
           </p>
-          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 80, overflow: 'visible' }}>
-            <polyline points={pts} fill="none" stroke={ACCENT} strokeWidth="2" strokeLinejoin="round" />
-            {byMonth.filter(m => m.mae).map((m, i) => (
-              <circle key={i} cx={toX(i)} cy={toY(m.mae)} r={3} fill={ACCENT}>
-                <title>{m.month}: MAE {m.mae.toFixed(4)} ({m.n} rows)</title>
-              </circle>
-            ))}
-          </svg>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 4 }}>
-            {byMonth.filter((_, i) => i % Math.max(1, Math.floor(byMonth.length / 6)) === 0).map(m => (
-              <span key={m.month}>{m.month.slice(5)}</span>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* By confidence */}
-      {Object.keys(byConf).length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          style={{ padding: '1.25rem', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.85rem' }}>By Confidence Tier</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {Object.entries(byConf).map(([tier, stats]) => {
-              const c = TIER_COLORS[tier] ?? TIER_COLORS.LOW;
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 240, overflow: 'visible' }}>
+            <line x1={toX(minV)} y1={toY(minV)} x2={toX(maxV)} y2={toY(maxV)}
+              stroke="var(--border)" strokeWidth="1" strokeDasharray="4 4" />
+            {batters.map((b, i) => {
+              const color = b.pctErr <= 5 ? '#00c853' : b.pctErr <= 12 ? '#f59e0b' : '#ef4444';
               return (
-                <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                    background: c.bg, border: `1px solid ${c.border}`, color: c.text, minWidth: 60, textAlign: 'center' }}>{tier}</span>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', minWidth: 80 }}>{(stats.n || 0).toLocaleString()} rows</span>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Win rate: <span style={{ fontWeight: 700, color: c.text }}>{((stats.win_rate ?? 0) * 100).toFixed(1)}%</span></span>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>MAE: <span style={{ fontWeight: 700 }}>{stats.mae?.toFixed(3) ?? '—'}</span></span>
-                </div>
+                <circle key={i} cx={toX(b.pred)} cy={toY(b.actual)}
+                  r={Math.min(3 + b.games * 0.04, 7)} fill={color} fillOpacity={0.7} stroke={color} strokeWidth={1}>
+                  <title>#{b.batter_id}: pred {b.pred.toFixed(0)}H / actual {b.actual.toFixed(0)}H over {b.games} games ({b.pctErr.toFixed(1)}% off)</title>
+                </circle>
               );
             })}
+          </svg>
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+            <span><span style={{ color: '#00c853' }}>●</span> within 5%</span>
+            <span><span style={{ color: '#f59e0b' }}>●</span> within 12%</span>
+            <span><span style={{ color: '#ef4444' }}>●</span> off by 12%+</span>
+            <span style={{ marginLeft: 'auto' }}>dot size = games logged · dashed = perfect</span>
           </div>
         </motion.div>
+      )}
+
+      {batters.length > 0 && (
+        <div style={{ borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-secondary)' }}>
+                {['Batter', 'Games', 'Predicted H', 'Actual H', 'Diff', '% Off'].map(h => (
+                  <th key={h} style={{ padding: '0.5rem 0.75rem', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...batters].sort((a, b) => a.pctErr - b.pctErr).map((b, i) => {
+                const diff = b.pred - b.actual;
+                const pctColor = b.pctErr <= 5 ? '#00c853' : b.pctErr <= 12 ? '#f59e0b' : '#ef4444';
+                return (
+                  <tr key={b.batter_id} style={{ borderTop: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                    <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>#{b.batter_id}</td>
+                    <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)' }}>{b.games}</td>
+                    <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text-secondary)' }}>{b.pred.toFixed(1)}</td>
+                    <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>{b.actual.toFixed(1)}</td>
+                    <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600,
+                      color: diff > 0 ? 'var(--accent-red)' : diff < 0 ? 'var(--accent-green)' : 'var(--text-muted)' }}>
+                      {diff > 0 ? '+' : ''}{diff.toFixed(1)}H
+                    </td>
+                    <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: pctColor }}>
+                      {b.pctErr.toFixed(1)}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {!data.test_rows && (
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+          No backtest data yet. Run: <code>cd backend && python -m train.backtest_hitting</code>
+        </div>
       )}
     </div>
   );

@@ -1948,16 +1948,47 @@ def hitting_accuracy():
                 pass
             break
     if bt is None:
-        return jsonify({"mae": None, "within_half": None, "within_one": None,
-                        "by_month": [], "by_line": {}, "by_confidence": {}, "test_rows": None})
+        return jsonify({"mae": None, "season_pct_mae": None, "within_half": None, "within_one": None,
+                        "by_month": [], "by_confidence": {}, "by_batter": [], "test_rows": None})
+
+    # Aggregate per-batter season totals (mirrors pitching's per-pitcher records)
+    agg: dict = {}
+    for r in bt.get("records", []):
+        bid = r.get("batter_id") or 0
+        if bid == 0:
+            continue
+        if bid not in agg:
+            agg[bid] = {"pred": 0.0, "actual": 0.0, "games": 0}
+        agg[bid]["pred"]   += r.get("predicted_hits", 0)
+        agg[bid]["actual"] += r.get("actual_hits", 0)
+        agg[bid]["games"]  += 1
+
+    by_batter = []
+    for bid, v in agg.items():
+        if v["games"] < 10:
+            continue
+        pct_err = abs(v["pred"] - v["actual"]) / max(v["actual"], 1) * 100
+        by_batter.append({
+            "batter_id": bid,
+            "games":     v["games"],
+            "pred":      round(v["pred"], 1),
+            "actual":    round(v["actual"], 1),
+            "pctErr":    round(pct_err, 1),
+        })
+
+    season_pct_mae = None
+    if by_batter:
+        season_pct_mae = round(sum(b["pctErr"] for b in by_batter) / len(by_batter), 1)
+
     return jsonify({
-        "mae":           bt.get("overall", {}).get("mae"),
-        "within_half":   round(bt.get("error_distribution", {}).get("within_0.50", 0) * 100, 1),
-        "within_one":    round(bt.get("error_distribution", {}).get("within_1.00", 0) * 100, 1),
-        "by_month":      bt.get("by_month", []),
-        "by_line":       bt.get("by_line", {}),
-        "by_confidence": bt.get("by_confidence", {}),
-        "test_rows":     bt.get("test_rows"),
+        "mae":            bt.get("overall", {}).get("mae"),
+        "season_pct_mae": season_pct_mae,
+        "within_half":    round(bt.get("error_distribution", {}).get("within_0.50", 0) * 100, 1),
+        "within_one":     round(bt.get("error_distribution", {}).get("within_1.00", 0) * 100, 1),
+        "by_month":       bt.get("by_month", []),
+        "by_confidence":  bt.get("by_confidence", {}),
+        "by_batter":      by_batter,
+        "test_rows":      bt.get("test_rows"),
     })
 
 
