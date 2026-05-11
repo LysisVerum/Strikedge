@@ -543,11 +543,8 @@ def _run_hitting_slate(slate: list[dict]) -> tuple[list, list]:
             )
 
             # Force PASS for batters without a real DK line — model has no real implied prob
-            # Also force PASS for Under on 0.5-line: DK only offers "1+" (at-least-1-hit)
-            # as an Over-side bet; the Under (zero hits) is not a standard available market
+            # Under-on-0.5 is already blocked inside hitting_model.predict()
             recommendation = "PASS" if not has_line else pred.recommendation
-            if recommendation == "UNDER" and line <= 0.5:
-                recommendation = "PASS"
             edge_pct = pred.edge_pct if (has_line and recommendation != "PASS") else 0.0
 
             if recommendation == "OVER":

@@ -114,15 +114,24 @@ def _american_to_implied(odds: int) -> float:
     return abs(odds) / (abs(odds) + 100)
 
 
-def _poisson_prob_over(predicted: float, line: float) -> float:
-    """P(hits > line) using Poisson CDF — correct for small integer counts.
+def _dk_hits_needed(line: float) -> int:
+    """Convert Odds API half-integer line to DK's 'N+ H' integer threshold.
 
-    DK lines are always half-integers (0.5, 1.5, 2.5), so floor(line) gives
-    the last integer that counts as UNDER: P(over) = 1 - P(X <= floor(line)).
+    DK labels:  0.5 → "1+ H" (need ≥1 hit),  1.5 → "2+ H" (need ≥2 hits).
+    The Under side of a 0.5 line ("zero hits") is not a standard DK market.
+    """
+    return int(line) + 1
+
+
+def _poisson_prob_over(predicted: float, line: float) -> float:
+    """P(hits >= dk_hits_needed(line)) using Poisson CDF.
+
+    P(X >= n) = 1 - P(X <= n-1) = 1 - CDF(n-1).
     """
     from scipy import stats
-    mu = max(predicted, 0.01)   # guard against zero/negative predictions
-    return float(1 - stats.poisson.cdf(int(line), mu=mu))
+    mu = max(predicted, 0.01)
+    hits_needed = _dk_hits_needed(line)          # e.g. 1 for "1+ H", 2 for "2+ H"
+    return float(1 - stats.poisson.cdf(hits_needed - 1, mu=mu))
 
 
 # ---------------------------------------------------------------------------
@@ -178,8 +187,12 @@ class HittingModel:
 
         confidence = _confidence_tier(edge_pct)
 
+        # DK's 0.5 line ("1+ H") has no sellable Under side — "0 hits" is not
+        # a standard DK market, so UNDER is never valid when dk_hits_needed == 1.
+        under_available = _dk_hits_needed(line) > 1
+
         # Asymmetric thresholds: OVER requires 15% edge, UNDER requires 10%
-        if edge_over >= edge_under:
+        if edge_over >= edge_under or not under_available:
             recommendation = "OVER" if edge_over >= 0.15 else "PASS"
         elif edge_under >= 0.10:
             recommendation = "UNDER"
