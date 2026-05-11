@@ -29,6 +29,14 @@ export const api = {
   predict:     (body) => request('/picks/predict',   { method: 'POST',   body: JSON.stringify(body) }),
   refresh:     ()     => request('/picks/refresh',   { method: 'POST' }),
 
+  // Hitting props
+  hittingToday:       ()     => request('/hitting/today'),
+  hittingPerformance: ()     => request('/hitting/performance'),
+  hittingLiveRecord:  ()     => request('/hitting/live-record'),
+  hittingSkipped:     ()     => request('/hitting/skipped'),
+  hittingAccuracy:    ()     => request('/hitting/accuracy'),
+  hittingDeleteLine:  (body) => request('/hitting/log-lines', { method: 'DELETE', body: JSON.stringify(body) }),
+
   // Auth
   sendMagicLink: (email)  => request('/auth/magic-link', { method: 'POST', body: JSON.stringify({ email }) }),
   me:            ()       => request('/auth/me'),

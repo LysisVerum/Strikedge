@@ -14,6 +14,8 @@ backend/.env
 # Model artifacts
 backend/artifacts/*.parquet
 backend/artifacts/statcast_cache/
+backend/artifacts/hitting_cache/
+backend/artifacts/nb_model.joblib
 
 # Live app data (user-specific, not source)
 backend/artifacts/*.db

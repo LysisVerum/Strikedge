@@ -39,6 +39,7 @@ import pandas as pd
 
 from backend.app.models.strikeout import strikeout_model
 from backend.app.models.features import FEATURE_COLS
+from backend.app.models.hitting import hitting_model, HITTING_FEATURE_COLS
 from backend.app.data.mlb_api import (
     get_todays_starters,
     get_team_matchups_today,
@@ -57,6 +58,11 @@ from backend.app.data.prediction_log import (
     log_skipped, update_skipped_results, get_skipped_record,
 )
 from backend.app.data.k_log import log_slate_predictions, update_actuals, get_accuracy_stats
+from backend.app.data.hitting_log import (
+    log_hitting_predictions, get_hitting_live_record, update_hitting_results,
+    delete_hitting_prediction, log_hitting_skipped,
+    update_hitting_skipped_results, get_hitting_skipped_record,
+)
 from backend.app.db import init_db, purge_expired
 from backend.app.auth import generate_magic_link, verify_magic_link, create_session, get_session_email, delete_session
 from backend.app.users import get_user, upsert_user, get_tier, get_token_info, use_token, get_unlocked_today
@@ -102,7 +108,142 @@ _store = {
     "model_loaded":  False,
     "refresh_running": False,
 }
+
+_hitting_store = {
+    "picks":         [],
+    "all_processed": [],
+    "last_update":   None,
+    "model_loaded":  False,
+}
+
 _refresh_lock = threading.Lock()
+
+# ---------------------------------------------------------------------------
+# Hitting demo slate — realistic 2025 batter feature rows.
+# Replace with a live lineup pipeline when batter Statcast agg is ready.
+# ---------------------------------------------------------------------------
+_HITTING_DEMO_SLATE = [
+    {
+        "batter_name": "Juan Soto", "mlbam_id": 665742,
+        "team": "NYY", "opponent_abbr": "BOS", "is_home": True,
+        "line": 1.5, "over_odds": -120, "under_odds": 100,
+        "features": {
+            "h_per_pa_last7": 0.330, "h_per_pa_last14": 0.310,
+            "h_per_pa_last30": 0.290, "h_per_pa_season": 0.285,
+            "barrel_rate_last30": 0.115, "hard_hit_pct_last30": 0.510,
+            "xba_last30": 0.305, "avg_exit_velo_last30": 93.4,
+            "sweet_spot_pct_last30": 0.390, "pa_per_game_last14": 4.3,
+            "h_per_pa_vs_hand_last60": 0.295,
+            "opp_k_pct": 0.215, "opp_hard_hit_pct_allowed": 0.365,
+            "opp_xba_allowed": 0.260, "park_factor": 0.97, "is_home": 1,
+        },
+    },
+    {
+        "batter_name": "Yordan Alvarez", "mlbam_id": 670541,
+        "team": "HOU", "opponent_abbr": "OAK", "is_home": True,
+        "line": 1.5, "over_odds": -110, "under_odds": -110,
+        "features": {
+            "h_per_pa_last7": 0.315, "h_per_pa_last14": 0.300,
+            "h_per_pa_last30": 0.295, "h_per_pa_season": 0.290,
+            "barrel_rate_last30": 0.142, "hard_hit_pct_last30": 0.565,
+            "xba_last30": 0.320, "avg_exit_velo_last30": 95.8,
+            "sweet_spot_pct_last30": 0.410, "pa_per_game_last14": 4.1,
+            "h_per_pa_vs_hand_last60": 0.310,
+            "opp_k_pct": 0.235, "opp_hard_hit_pct_allowed": 0.340,
+            "opp_xba_allowed": 0.248, "park_factor": 1.04, "is_home": 1,
+        },
+    },
+    {
+        "batter_name": "Freddie Freeman", "mlbam_id": 518692,
+        "team": "LAD", "opponent_abbr": "SF", "is_home": False,
+        "line": 1.5, "over_odds": -115, "under_odds": -105,
+        "features": {
+            "h_per_pa_last7": 0.305, "h_per_pa_last14": 0.295,
+            "h_per_pa_last30": 0.285, "h_per_pa_season": 0.280,
+            "barrel_rate_last30": 0.098, "hard_hit_pct_last30": 0.480,
+            "xba_last30": 0.298, "avg_exit_velo_last30": 92.1,
+            "sweet_spot_pct_last30": 0.375, "pa_per_game_last14": 4.4,
+            "h_per_pa_vs_hand_last60": 0.290,
+            "opp_k_pct": 0.225, "opp_hard_hit_pct_allowed": 0.350,
+            "opp_xba_allowed": 0.255, "park_factor": 1.01, "is_home": 0,
+        },
+    },
+    {
+        "batter_name": "Mookie Betts", "mlbam_id": 605141,
+        "team": "LAD", "opponent_abbr": "SF", "is_home": False,
+        "line": 0.5, "over_odds": -185, "under_odds": 155,
+        "features": {
+            "h_per_pa_last7": 0.280, "h_per_pa_last14": 0.270,
+            "h_per_pa_last30": 0.265, "h_per_pa_season": 0.270,
+            "barrel_rate_last30": 0.108, "hard_hit_pct_last30": 0.465,
+            "xba_last30": 0.285, "avg_exit_velo_last30": 91.7,
+            "sweet_spot_pct_last30": 0.355, "pa_per_game_last14": 4.2,
+            "h_per_pa_vs_hand_last60": 0.275,
+            "opp_k_pct": 0.225, "opp_hard_hit_pct_allowed": 0.350,
+            "opp_xba_allowed": 0.255, "park_factor": 1.01, "is_home": 0,
+        },
+    },
+    {
+        "batter_name": "Rafael Devers", "mlbam_id": 646240,
+        "team": "BOS", "opponent_abbr": "NYY", "is_home": False,
+        "line": 1.5, "over_odds": -115, "under_odds": -105,
+        "features": {
+            "h_per_pa_last7": 0.265, "h_per_pa_last14": 0.270,
+            "h_per_pa_last30": 0.275, "h_per_pa_season": 0.268,
+            "barrel_rate_last30": 0.132, "hard_hit_pct_last30": 0.530,
+            "xba_last30": 0.293, "avg_exit_velo_last30": 94.2,
+            "sweet_spot_pct_last30": 0.362, "pa_per_game_last14": 4.0,
+            "h_per_pa_vs_hand_last60": 0.285,
+            "opp_k_pct": 0.235, "opp_hard_hit_pct_allowed": 0.355,
+            "opp_xba_allowed": 0.263, "park_factor": 0.97, "is_home": 0,
+        },
+    },
+    {
+        "batter_name": "Fernando Tatis Jr.", "mlbam_id": 665487,
+        "team": "SD", "opponent_abbr": "ARI", "is_home": True,
+        "line": 0.5, "over_odds": -175, "under_odds": 145,
+        "features": {
+            "h_per_pa_last7": 0.255, "h_per_pa_last14": 0.262,
+            "h_per_pa_last30": 0.268, "h_per_pa_season": 0.260,
+            "barrel_rate_last30": 0.120, "hard_hit_pct_last30": 0.490,
+            "xba_last30": 0.278, "avg_exit_velo_last30": 92.8,
+            "sweet_spot_pct_last30": 0.345, "pa_per_game_last14": 4.3,
+            "h_per_pa_vs_hand_last60": 0.272,
+            "opp_k_pct": 0.245, "opp_hard_hit_pct_allowed": 0.360,
+            "opp_xba_allowed": 0.252, "park_factor": 0.96, "is_home": 1,
+        },
+    },
+    {
+        "batter_name": "Paul Goldschmidt", "mlbam_id": 502671,
+        "team": "STL", "opponent_abbr": "CHC", "is_home": True,
+        "line": 1.5, "over_odds": -110, "under_odds": -110,
+        "features": {
+            "h_per_pa_last7": 0.252, "h_per_pa_last14": 0.258,
+            "h_per_pa_last30": 0.262, "h_per_pa_season": 0.255,
+            "barrel_rate_last30": 0.106, "hard_hit_pct_last30": 0.455,
+            "xba_last30": 0.275, "avg_exit_velo_last30": 91.3,
+            "sweet_spot_pct_last30": 0.348, "pa_per_game_last14": 4.1,
+            "h_per_pa_vs_hand_last60": 0.268,
+            "opp_k_pct": 0.218, "opp_hard_hit_pct_allowed": 0.372,
+            "opp_xba_allowed": 0.265, "park_factor": 1.00, "is_home": 1,
+        },
+    },
+    {
+        "batter_name": "Matt Olson", "mlbam_id": 621566,
+        "team": "ATL", "opponent_abbr": "MIA", "is_home": True,
+        "line": 1.5, "over_odds": -115, "under_odds": -105,
+        "features": {
+            "h_per_pa_last7": 0.240, "h_per_pa_last14": 0.245,
+            "h_per_pa_last30": 0.250, "h_per_pa_season": 0.248,
+            "barrel_rate_last30": 0.125, "hard_hit_pct_last30": 0.505,
+            "xba_last30": 0.272, "avg_exit_velo_last30": 93.0,
+            "sweet_spot_pct_last30": 0.358, "pa_per_game_last14": 4.0,
+            "h_per_pa_vs_hand_last60": 0.258,
+            "opp_k_pct": 0.242, "opp_hard_hit_pct_allowed": 0.345,
+            "opp_xba_allowed": 0.245, "park_factor": 1.03, "is_home": 1,
+        },
+    },
+]
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +510,107 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
     return meaningful, picks
 
 
+def _run_hitting_slate(demo_slate: list[dict]) -> tuple[list, list]:
+    """
+    Run the hitting model over the demo batter slate.
+    Returns (edge_picks, all_processed) — same contract as _run_slate().
+    """
+    import numpy as np
+    picks = []
+    for batter in demo_slate:
+        name = batter["batter_name"]
+        try:
+            fv   = batter["features"]
+            row  = pd.Series({col: fv.get(col, np.nan) for col in HITTING_FEATURE_COLS})
+            matchup = f"vs {batter['opponent_abbr']} @ {'home' if batter['is_home'] else 'away'}"
+
+            line       = batter["line"]
+            over_odds  = batter["over_odds"]
+            under_odds = batter["under_odds"]
+
+            pred = hitting_model.predict(
+                feature_row  = row,
+                line         = line,
+                over_odds    = over_odds,
+                under_odds   = under_odds,
+                batter_name  = name,
+                matchup      = matchup,
+            )
+
+            if pred.recommendation == "OVER":
+                model_prob_win = pred.model_prob_over
+                bet_odds       = over_odds
+            elif pred.recommendation == "UNDER":
+                model_prob_win = 1 - pred.model_prob_over
+                bet_odds       = under_odds
+            else:
+                model_prob_win = 0.0
+                bet_odds       = over_odds
+
+            recommended_bet = _kelly_bet(model_prob_win, bet_odds)
+            side = "Under" if pred.recommendation == "UNDER" else "Over"
+
+            picks.append({
+                "rank":              0,
+                "has_line":          True,
+                "live_line":         False,
+                "mlbam_id":          batter["mlbam_id"],
+                "batter_name":       pred.batter_name,
+                "matchup":           pred.matchup,
+                "team":              batter.get("team", ""),
+                "opponent":          batter.get("opponent_abbr", ""),
+                "bet":               f"{side} {pred.line} H",
+                "predicted_hits":    pred.predicted_hits,
+                "line":              pred.line,
+                "line_source":       "model",
+                "over_odds":         over_odds,
+                "under_odds":        under_odds,
+                "bet_odds":          bet_odds,
+                "edge_pct_display":  _format_edge(pred.edge_pct),
+                "edge_pct":          pred.edge_pct,
+                "confidence":        pred.confidence,
+                "recommendation":    pred.recommendation,
+                "model_prob_over":   pred.model_prob_over,
+                "implied_prob_over": pred.implied_prob_over,
+                "recommended_bet":   recommended_bet,
+                "features": {
+                    "h7":       _safe(fv.get("h_per_pa_last7")),
+                    "h14":      _safe(fv.get("h_per_pa_last14")),
+                    "h30":      _safe(fv.get("h_per_pa_last30")),
+                    "hs":       _safe(fv.get("h_per_pa_season")),
+                    "barrel":   _safe(fv.get("barrel_rate_last30")),
+                    "hard_hit": _safe(fv.get("hard_hit_pct_last30")),
+                    "xba":      _safe(fv.get("xba_last30")),
+                    "exit_velo":_safe(fv.get("avg_exit_velo_last30")),
+                    "sweet_spot": _safe(fv.get("sweet_spot_pct_last30")),
+                    "pa_rate":  _safe(fv.get("pa_per_game_last14")),
+                    "vs_hand":  _safe(fv.get("h_per_pa_vs_hand_last60")),
+                    "opp_k":    _safe(fv.get("opp_k_pct"), 0.225),
+                    "opp_hard_hit": _safe(fv.get("opp_hard_hit_pct_allowed")),
+                    "opp_xba":  _safe(fv.get("opp_xba_allowed")),
+                    "park":     _safe(fv.get("park_factor"), 1.0),
+                },
+            })
+        except Exception as e:
+            print(f"  [hitting] {name}: {e}")
+
+    meaningful = [
+        p for p in picks
+        if (p["recommendation"] == "UNDER" and abs(p["edge_pct"]) >= MIN_EDGE_UNDER)
+        or (p["recommendation"] == "OVER"  and abs(p["edge_pct"]) >= MIN_EDGE_OVER)
+    ]
+    meaningful.sort(key=lambda p: abs(p["edge_pct"]), reverse=True)
+    for i, p in enumerate(meaningful):
+        p["rank"] = i + 1
+
+    picks.sort(key=lambda p: abs(p["edge_pct"]), reverse=True)
+    meaningful_names = {p["batter_name"] for p in meaningful}
+    for p in picks:
+        p["actionable"] = p["batter_name"] in meaningful_names
+
+    return meaningful, picks
+
+
 def _background_maintenance(interval_seconds=3600):
     while True:
         time.sleep(interval_seconds)
@@ -462,7 +704,7 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
     _store["picks"]         = picks
     _store["all_processed"] = all_processed
     _store["slate"]         = starters
-    _store["last_update"] = datetime.now().isoformat(timespec="seconds")
+    _store["last_update"]   = datetime.now().isoformat(timespec="seconds")
     print(f"[mlbet] {len(picks)} picks ready. Updated: {_store['last_update']}")
 
     # Auto-log K predictions for accuracy tracking (no lines needed)
@@ -490,6 +732,77 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
         } for p in live_picks]
         auto_logged = log_predictions(log_entries)
         print(f"[mlbet] {auto_logged} picks auto-logged to bet log.")
+
+    # ---- Hitting model -------------------------------------------------------
+    if not hitting_model.is_loaded:
+        print("[mlbet] Loading hitting model...")
+        try:
+            hitting_model.load()
+            _hitting_store["model_loaded"] = True
+            print("[mlbet] Hitting model loaded.")
+        except FileNotFoundError:
+            print("[mlbet] Hitting model not found — run: cd backend && python -m train.train_hitting")
+    else:
+        _hitting_store["model_loaded"] = True
+
+    if _hitting_store["model_loaded"]:
+        print("[mlbet] Running hitting slate...")
+        try:
+            h_picks, h_all = _run_hitting_slate(_HITTING_DEMO_SLATE)
+        except Exception as e:
+            print(f"[mlbet] _run_hitting_slate error: {e}")
+            h_picks, h_all = [], []
+        _hitting_store["picks"]         = h_picks
+        _hitting_store["all_processed"] = h_all
+        _hitting_store["last_update"]   = _store["last_update"]
+        print(f"[mlbet] {len(h_picks)} hitting picks ready.")
+
+        live_h_picks = [p for p in h_picks if p.get("live_line")]
+        if live_h_picks:
+            h_log_entries = [{
+                "batter_name":     p["batter_name"],
+                "mlbam_id":        p["mlbam_id"],
+                "line":            p["line"],
+                "over_odds":       p["over_odds"],
+                "under_odds":      p["under_odds"],
+                "bet_odds":        p["bet_odds"],
+                "line_source":     p["line_source"],
+                "predicted_hits":  p["predicted_hits"],
+                "recommendation":  p["recommendation"],
+                "edge":            round(p["edge_pct"], 4),
+                "confidence":      p["confidence"],
+                "model_prob_over": p["model_prob_over"],
+                "bet":             p["recommended_bet"],
+                "features":        p.get("features", {}),
+            } for p in live_h_picks]
+            log_hitting_predictions(h_log_entries)
+
+        h_actionable = {p["batter_name"] for p in h_picks}
+        h_skipped = [p for p in h_all if p["batter_name"] not in h_actionable]
+        if h_skipped:
+            def _h_skip_reason(p):
+                rec, edge = p["recommendation"], abs(p["edge_pct"])
+                if rec == "PASS":
+                    return f"PASS — {p['confidence']} conf, {edge*100:.1f}% edge"
+                if rec == "UNDER":
+                    return f"UNDER edge {edge*100:.1f}% < {MIN_EDGE_UNDER*100:.0f}% threshold"
+                return f"OVER edge {edge*100:.1f}% < {MIN_EDGE_OVER*100:.0f}% threshold"
+            log_hitting_skipped([{
+                "batter_name":     p["batter_name"],
+                "mlbam_id":        p["mlbam_id"],
+                "line":            p["line"],
+                "over_odds":       p["over_odds"],
+                "under_odds":      p["under_odds"],
+                "predicted_hits":  p["predicted_hits"],
+                "recommendation":  p["recommendation"],
+                "edge":            round(p["edge_pct"], 4),
+                "confidence":      p["confidence"],
+                "model_prob_over": p["model_prob_over"],
+                "implied_prob_over": p.get("implied_prob_over"),
+                "features":        p.get("features", {}),
+                "skip_reason":     _h_skip_reason(p),
+            } for p in h_skipped])
+    # ---- End hitting model ---------------------------------------------------
 
     # Auto-log non-edge picks with live lines to skipped (deduped by pitcher+date)
     actionable_names = {p["pitcher_name"] for p in picks}
@@ -1222,6 +1535,271 @@ def force_refresh():
     # force_odds_refresh=True so a manual refresh always pulls fresh lines from the API
     threading.Thread(target=refresh_data, kwargs={"force_odds_refresh": True}, daemon=True).start()
     return jsonify({"status": "refresh started"})
+
+
+# ---------------------------------------------------------------------------
+# Hitting API routes
+# ---------------------------------------------------------------------------
+
+HITTING_MODEL_VERSION = "hitting-xgb-v1"
+
+
+@app.get("/api/hitting/today")
+def hitting_today():
+    email    = _current_email()
+    tier     = get_tier(email) if email else "free"
+    all_picks = _hitting_store["picks"]
+    date_str  = date.today().isoformat()
+
+    if tier == "premium":
+        return jsonify({
+            "date":          date_str,
+            "picks":         all_picks,
+            "total_picks":   len(all_picks),
+            "tier":          "premium",
+            "model_version": HITTING_MODEL_VERSION,
+            "last_update":   _hitting_store["last_update"],
+        })
+
+    # Free tier — show top 2, lock the rest
+    unlocked   = get_unlocked_today(email, date_str) if email else []
+    token_info = get_token_info(email) if email else {"tokens_remaining": 0, "tokens_reset_at": None}
+
+    picks_out = []
+    for i, pick in enumerate(all_picks):
+        if pick["batter_name"] in unlocked or i < FREE_PICKS_LIMIT:
+            picks_out.append({**pick, "locked": False})
+        else:
+            picks_out.append({
+                "batter_name": pick["batter_name"],
+                "matchup":     pick.get("matchup", ""),
+                "team":        pick.get("team", ""),
+                "opponent":    pick.get("opponent", ""),
+                "has_line":    pick.get("has_line", True),
+                "locked":      True,
+            })
+
+    return jsonify({
+        "date":             date_str,
+        "picks":            picks_out,
+        "total_picks":      len(all_picks),
+        "tier":             "free",
+        "tokens_remaining": token_info["tokens_remaining"],
+        "tokens_reset_at":  token_info["tokens_reset_at"],
+        "model_version":    HITTING_MODEL_VERSION,
+        "last_update":      _hitting_store["last_update"],
+    })
+
+
+@app.get("/api/hitting/performance")
+def hitting_performance():
+    if not _current_email():
+        abort(401, "Sign in to view performance data")
+
+    backtest_path = Path(__file__).parent / "backend" / "artifacts" / "hitting_backtest.json"
+    if not backtest_path.exists():
+        return jsonify({"error": "No hitting backtest yet. Run: cd backend && python -m train.backtest_hitting"}), 404
+
+    bt = json.loads(backtest_path.read_text())
+
+    # Build a performance-compatible response from the accuracy backtest
+    by_month_accuracy = bt.get("by_month", [])
+
+    # Live bet performance from hitting_prediction_log
+    live_rec  = get_hitting_live_record()
+    live_resolved = [r for r in live_rec.get("records", []) if r.get("outcome") and (r.get("bet") or 0) > 0]
+
+    wins   = sum(1 for r in live_resolved if r["outcome"] == "WIN")
+    losses = sum(1 for r in live_resolved if r["outcome"] == "LOSS")
+    pushes = sum(1 for r in live_resolved if r["outcome"] == "PUSH")
+    total_wagered = sum(r.get("bet", 0) or 0 for r in live_resolved)
+    total_pnl     = sum(r.get("pnl", 0) or 0 for r in live_resolved)
+    roi      = (total_pnl / total_wagered * 100) if total_wagered > 0 else 0
+    win_rate = (wins / (wins + losses) * 100) if (wins + losses) > 0 else 0
+
+    # Cumulative P&L curve
+    cumulative_pnl = []
+    running = 0
+    for r in sorted(live_resolved, key=lambda x: x.get("date", "")):
+        running += r.get("pnl") or 0
+        cumulative_pnl.append(round(running, 2))
+
+    # Monthly buckets from live bets
+    monthly_map: dict = {}
+    for r in live_resolved:
+        key = (r.get("date") or "")[:7]
+        if key not in monthly_map:
+            monthly_map[key] = {"month": key, "bets": 0, "wins": 0, "losses": 0,
+                                "pushes": 0, "pnl": 0.0, "wagered": 0.0, "roi": 0.0}
+        m = monthly_map[key]
+        m["bets"]    += 1
+        m["wins"]    += 1 if r["outcome"] == "WIN"  else 0
+        m["losses"]  += 1 if r["outcome"] == "LOSS" else 0
+        m["pushes"]  += 1 if r["outcome"] == "PUSH" else 0
+        m["pnl"]     += r.get("pnl") or 0
+        m["wagered"]  = m.get("wagered", 0) + (r.get("bet") or 0)
+        if m.get("wagered"):
+            m["roi"] = round(m["pnl"] / m["wagered"] * 100, 1)
+    monthly = sorted(monthly_map.values(), key=lambda x: x["month"])
+
+    # Confidence breakdown from live + backtest
+    by_conf = bt.get("by_confidence", {})
+    byTier = {}
+    for tier, stats in by_conf.items():
+        wr = stats.get("win_rate", 0) * 100
+        byTier[tier] = {
+            "bets":    stats.get("n", 0),
+            "wins":    round(stats.get("n", 0) * stats.get("win_rate", 0)),
+            "losses":  round(stats.get("n", 0) * (1 - stats.get("win_rate", 0))),
+            "winRate": f"{wr:.1f}%",
+            "roi":     "—",
+        }
+
+    current_month = date.today().strftime("%Y-%m")
+    recent_bets = [
+        {
+            "date":           r.get("date", ""),
+            "batter_name":    r.get("batter_name", ""),
+            "recommendation": r.get("recommendation") or r.get("rec", ""),
+            "line":           r.get("line"),
+            "actual_hits":    r.get("actual_hits"),
+            "outcome":        r.get("outcome", ""),
+            "pnl":            round(r.get("pnl") or 0, 2),
+            "bet":            round(r.get("bet") or 0, 2),
+            "edge_pct":       r.get("edge"),
+        }
+        for r in sorted(live_resolved, key=lambda x: x.get("date", ""), reverse=True)
+        if (r.get("date") or "")[:7] == current_month
+    ][:20]
+
+    return jsonify({
+        "overall": {
+            "bets":    len(live_resolved),
+            "wins":    wins,
+            "losses":  losses,
+            "pushes":  pushes,
+            "winRate": f"{win_rate:.1f}%",
+            "roi":     f"{'+' if roi >= 0 else ''}{roi:.1f}%",
+            "pnl":     round(total_pnl, 2),
+            "wagered": round(total_wagered, 2),
+        },
+        "byTier":        byTier,
+        "monthly":       monthly,
+        "cumulative_pnl": cumulative_pnl,
+        "bankroll":      1000,
+        "kelly_frac":    0.25,
+        "recent_bets":   recent_bets,
+        "model_accuracy": {
+            "mae":         bt["overall"].get("mae"),
+            "within_half": round(bt["error_distribution"].get("within_0.50", 0) * 100, 1),
+            "within_one":  round(bt["error_distribution"].get("within_1.00", 0) * 100, 1),
+            "by_month":    by_month_accuracy,
+            "by_line":     bt.get("by_line", {}),
+            "test_rows":   bt.get("test_rows"),
+        },
+    })
+
+
+@app.get("/api/hitting/live-record")
+def hitting_live_record():
+    _auto_resolve_hitting_pending()
+    return jsonify(get_hitting_live_record())
+
+
+def _auto_resolve_hitting_pending():
+    """Fetch actual hits for pending batter picks from before today."""
+    import urllib.request, json as _json
+    today = date.today().isoformat()
+    record = get_hitting_live_record()
+    pending = [r for r in record.get("records", []) if r.get("outcome") is None and r.get("date", today) < today]
+    dates_to_check = sorted({r["date"] for r in pending})
+    for date_str in dates_to_check:
+        try:
+            url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={date_str}&hydrate=boxscore"
+            with urllib.request.urlopen(url, timeout=15) as resp:
+                data = _json.loads(resp.read())
+            results = []
+            for date_entry in data.get("dates", []):
+                for game in date_entry.get("games", []):
+                    if game.get("status", {}).get("abstractGameState") != "Final":
+                        continue
+                    box_url = f"https://statsapi.mlb.com/api/v1/game/{game['gamePk']}/boxscore"
+                    with urllib.request.urlopen(box_url, timeout=15) as br:
+                        box = _json.loads(br.read())
+                    for side in ("home", "away"):
+                        team    = box.get("teams", {}).get(side, {})
+                        players = team.get("players", {})
+                        for pid, pdata in players.items():
+                            batter_id = pdata.get("person", {}).get("id")
+                            hits = pdata.get("stats", {}).get("batting", {}).get("hits")
+                            if batter_id and hits is not None:
+                                results.append({"mlbam_id": batter_id, "actual_hits": float(hits)})
+            if results:
+                update_hitting_results(date_str, results)
+                update_hitting_skipped_results(date_str, results)
+                print(f"  [hitting-resolve] {date_str}: resolved {len(results)} batters")
+        except Exception as e:
+            print(f"  [hitting-resolve] {date_str} failed: {e}")
+
+
+@app.get("/api/hitting/skipped")
+def hitting_skipped():
+    if _current_tier() != "premium":
+        abort(403, "Premium required")
+    _auto_resolve_hitting_pending()
+    records = get_hitting_skipped_record()
+    live = get_hitting_live_record().get("records", [])
+    for r in live:
+        if not r.get("bet"):
+            records.append({
+                "date":         r.get("date"),
+                "batter_name":  r.get("batter_name"),
+                "mlbam_id":     r.get("mlbam_id"),
+                "line":         r.get("line"),
+                "predicted_hits": r.get("predicted_hits"),
+                "actual_hits":  r.get("actual_hits"),
+                "edge":         r.get("edge"),
+                "confidence":   r.get("confidence"),
+                "recommendation": r.get("recommendation"),
+                "skip_reason":  "Kelly stake = $0",
+                "miss":         None,
+            })
+    for r in records:
+        if r.get("actual_hits") is not None and r.get("predicted_hits") is not None:
+            r["miss"] = round(r["actual_hits"] - r["predicted_hits"], 2)
+    return jsonify(records)
+
+
+@app.get("/api/hitting/accuracy")
+def hitting_accuracy():
+    if _current_tier() != "premium":
+        abort(403, "Premium required")
+    backtest_path = Path(__file__).parent / "backend" / "artifacts" / "hitting_backtest.json"
+    if not backtest_path.exists():
+        return jsonify({"records": [], "mae": None, "within_half": None, "within_one": None})
+    bt = json.loads(backtest_path.read_text())
+    return jsonify({
+        "mae":         bt["overall"].get("mae"),
+        "within_half": round(bt["error_distribution"].get("within_0.50", 0) * 100, 1),
+        "within_one":  round(bt["error_distribution"].get("within_1.00", 0) * 100, 1),
+        "by_month":    bt.get("by_month", []),
+        "by_line":     bt.get("by_line", {}),
+        "by_confidence": bt.get("by_confidence", {}),
+        "test_rows":   bt.get("test_rows"),
+    })
+
+
+@app.delete("/api/hitting/log-lines")
+def delete_hitting_log_line():
+    if _current_tier() != "premium":
+        abort(403, "Premium required")
+    body = request.get_json(force=True)
+    date_str    = body.get("date")
+    batter_name = body.get("batter_name")
+    if not date_str or not batter_name:
+        abort(400, "Missing date or batter_name")
+    deleted = delete_hitting_prediction(date_str, batter_name)
+    return jsonify({"deleted": deleted})
 
 
 # ---------------------------------------------------------------------------
