@@ -2,6 +2,42 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 
+const BOOK_URLS = {
+  'DraftKings':  'https://sportsbook.draftkings.com/leagues/baseball/mlb',
+  'draftkings':  'https://sportsbook.draftkings.com/leagues/baseball/mlb',
+  'FanDuel':     'https://sportsbook.fanduel.com/baseball/mlb',
+  'fanduel':     'https://sportsbook.fanduel.com/baseball/mlb',
+  'BetMGM':      'https://sports.betmgm.com/en/sports/baseball-23',
+  'betmgm':      'https://sports.betmgm.com/en/sports/baseball-23',
+  'Caesars':     'https://sportsbook.caesars.com/us/va/baseball/mlb',
+  'caesars':     'https://sportsbook.caesars.com/us/va/baseball/mlb',
+  'BetRivers':   'https://pa.betrivers.com/?page=sportsbook#baseball/mlb',
+  'betrivers':   'https://pa.betrivers.com/?page=sportsbook#baseball/mlb',
+  'Fanatics':    'https://sportsbook.fanaticssportsbook.com/sports/baseball/mlb',
+  'fanatics':    'https://sportsbook.fanaticssportsbook.com/sports/baseball/mlb',
+  'BetOnline.ag':'https://www.betonline.ag/sportsbook/baseball/mlb',
+};
+
+function BookLink({ book }) {
+  const url = BOOK_URLS[book];
+  if (!book || !url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={e => e.stopPropagation()}
+      style={{
+        fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+        background: 'rgba(29,155,240,0.08)', border: '1px solid rgba(29,155,240,0.25)',
+        color: 'var(--accent-blue)', textDecoration: 'none', display: 'inline-block',
+      }}
+    >
+      {book}
+    </a>
+  );
+}
+
 // Amber/orange palette for hitting section
 const ACCENT = '#f97316';
 const ACCENT_BG = 'rgba(249,115,22,0.10)';
@@ -264,7 +300,7 @@ export default function HittingPickCard({ pick, index }) {
               {pick.confidence}
             </span>
           </div>
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.45rem' }}>
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>
             <span style={{ color: REC_COLORS[pick.recommendation], fontWeight: 700 }}>{pick.bet}</span>
             {pick.recommendation === 'PASS' && pick.over_odds != null && pick.under_odds != null ? (
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '0.4rem' }}>
@@ -281,6 +317,11 @@ export default function HittingPickCard({ pick, index }) {
             ) : null}
             &nbsp;·&nbsp;{pick.matchup}
           </div>
+          {pick.line_source && pick.line_source !== 'model' && (
+            <div style={{ marginBottom: '0.35rem' }}>
+              <BookLink book={pick.line_source} />
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <div style={{ flex: 1, height: 3, borderRadius: 3, background: 'var(--border)', overflow: 'hidden', maxWidth: 180 }}>
               <motion.div

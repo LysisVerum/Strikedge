@@ -571,7 +571,7 @@ def _run_hitting_slate(slate: list[dict]) -> tuple[list, list]:
                 "bet":               f"{side} {pred.line} H",
                 "predicted_hits":    pred.predicted_hits,
                 "line":              pred.line,
-                "line_source":       "live" if has_line else "model",
+                "line_source":       batter.get("book", "DraftKings") if has_line else "model",
                 "over_odds":         over_odds,
                 "under_odds":        under_odds,
                 "bet_odds":          bet_odds,

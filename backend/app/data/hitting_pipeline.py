@@ -588,6 +588,7 @@ def build_live_hitting_slate(
             "opponent_abbr": opponent_abbr,
             "is_home":       is_home,
             "has_line":      True,
+            "book":          line_info.get("book", "DraftKings"),
             "line":          line_info["line"],
             "over_odds":     line_info["over_odds"],
             "under_odds":    line_info["under_odds"],
