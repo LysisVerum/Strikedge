@@ -1559,12 +1559,11 @@ def force_refresh():
 
 
 def _run_hitting_refresh():
-    """Re-run hitting pipeline with fresh cache — called from /api/hitting/refresh thread."""
-    invalidate_player_prop_cache()
+    """Re-run hitting pipeline with fresh lines — called from /api/hitting/refresh thread."""
     invalidate_schedule_cache()
     game_date = date.today().isoformat()
     try:
-        live_h_slate = build_live_hitting_slate(game_date) or []
+        live_h_slate = build_live_hitting_slate(game_date, force_refresh=True) or []
     except Exception as e:
         print(f"[hitting_refresh] pipeline error: {e}")
         live_h_slate = []

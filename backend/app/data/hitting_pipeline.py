@@ -2,17 +2,16 @@
 Hitting slate pipeline — mirrors the pitching pipeline.
 
 1. Fetch DK batter hit lines from the Odds API (batter_hits market).
-2. Optionally enrich with MLB confirmed lineup context (team, opponent, home/away).
-3. Load Statcast features from parquet cache only — never calls pybaseball at runtime.
+   Uses a 2-hour disk cache and 30-minute force-refresh throttle (same as
+   strikeout lines) to protect Odds API credits.
+2. Enrich with MLB confirmed lineup context (team, opponent, home/away).
+3. Compute H/PA features from MLB Stats API game logs (free, same API used
+   for pitcher K% data). Statcast contact-quality features stay NaN until a
+   local parquet cache is built.
 4. Returns a slate list for _run_hitting_slate() in app.py.
-
-Each element:
-    {
-        batter_name, mlbam_id, team, opponent_abbr, is_home,
-        has_line, line, over_odds, under_odds,
-        features: dict  # HITTING_FEATURE_COLS, NaN when Statcast not cached
-    }
 """
+import json
+import time
 import unicodedata
 import warnings
 from datetime import date
@@ -24,8 +23,49 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 
-_REPO_ROOT = Path(__file__).parent.parent.parent   # backend/
-_CACHE_DIR = _REPO_ROOT / "artifacts" / "hitting_cache"
+_REPO_ROOT  = Path(__file__).parent.parent.parent   # backend/
+_CACHE_DIR  = _REPO_ROOT / "artifacts" / "hitting_cache"
+_ARTIFACTS  = _REPO_ROOT / "artifacts"
+
+# ---------------------------------------------------------------------------
+# Disk cache for DK hitting lines — 2-hour TTL, same pattern as odds_api.py
+# ---------------------------------------------------------------------------
+
+_HIT_DISK_TTL              = 7200   # 2 hours
+_HIT_REFRESH_MIN_INTERVAL  = 1800   # 30 minutes between force-refreshes
+_last_hit_fetch_ts: float  = 0.0
+
+
+def _hit_cache_path() -> Path:
+    return _ARTIFACTS / f"hit_lines_cache_{date.today().isoformat()}.json"
+
+
+def _load_hit_disk_cache() -> dict | None:
+    path = _hit_cache_path()
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        age = time.time() - payload.get("ts", 0)
+        if age < _HIT_DISK_TTL:
+            print(f"  [hitting] disk cache hit ({int(age)}s old) — skipping API calls")
+            return payload["lines"]
+    except Exception:
+        pass
+    return None
+
+
+def _save_hit_disk_cache(lines: dict) -> None:
+    _ARTIFACTS.mkdir(parents=True, exist_ok=True)
+    path = _hit_cache_path()
+    path.write_text(json.dumps({"ts": time.time(), "lines": lines}, indent=2), encoding="utf-8")
+    for old in _ARTIFACTS.glob("hit_lines_cache_*.json"):
+        if old != path:
+            try:
+                old.unlink()
+            except Exception:
+                pass
+
 
 # ---------------------------------------------------------------------------
 # Team name → abbreviation (used to parse Odds API event home/away)
@@ -59,6 +99,10 @@ _PARK_FACTORS = {
     "MIA": 0.95, "KC":  0.95, "LAA": 0.95, "PIT": 0.94, "SD":  0.94,
 }
 
+# ---------------------------------------------------------------------------
+# Statcast columns (for parquet cache — populated from local data only)
+# ---------------------------------------------------------------------------
+
 _SC_COLS = [
     "game_date", "game_pk", "batter", "events", "p_throws",
     "launch_speed", "launch_angle", "estimated_ba_using_speedangle",
@@ -72,6 +116,9 @@ _NON_AB = frozenset([
 
 _sc_month_cache: dict[tuple, pd.DataFrame] = {}
 
+# MLB Stats API game log cache: {mlbam_id: [{"date", "H", "PA", "AB"}]}
+_mlb_log_cache: dict[int, list[dict]] = {}
+
 
 def _norm(name: str) -> str:
     return unicodedata.normalize("NFD", name).encode("ascii", "ignore").decode().lower().strip()
@@ -82,7 +129,7 @@ def _norm(name: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _load_cached_statcast(days: int = 95) -> pd.DataFrame:
-    """Load from parquet cache only. Returns empty DataFrame if cache misses."""
+    """Load from parquet cache only. Never calls pybaseball."""
     today  = date.today()
     cutoff = pd.Timestamp(today) - pd.Timedelta(days=days)
 
@@ -131,7 +178,6 @@ def _aggregate_batter_games(sc: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
 
     pa["is_hit"]      = pa["events"].isin(_HIT_EVENTS).astype(np.int8)
-    pa["is_ab"]       = (~pa["events"].isin(_NON_AB)).astype(np.int8)
     pa["is_hard_hit"] = (pa["launch_speed"] >= 95).fillna(False).astype(np.int8)
     pa["is_sweet"]    = (
         (pa["launch_angle"] >= 8) & (pa["launch_angle"] <= 32)
@@ -147,9 +193,9 @@ def _aggregate_batter_games(sc: pd.DataFrame) -> pd.DataFrame:
     ev_sum       = grp["launch_speed"].sum()
 
     result = pd.DataFrame({"hits": hits, "pa": n_pa, "n_contact": n_contact}).reset_index()
-    result["hard_hit_pct"]  = hard_hit_sum.values / np.where(n_contact.values > 0, n_contact.values, np.nan)
-    result["sweet_spot_pct"] = sweet_sum.values  / np.where(n_contact.values > 0, n_contact.values, np.nan)
-    result["avg_exit_velo"] = ev_sum.values       / np.where(n_contact.values > 0, n_contact.values, np.nan)
+    result["hard_hit_pct"]   = hard_hit_sum.values / np.where(n_contact.values > 0, n_contact.values, np.nan)
+    result["sweet_spot_pct"] = sweet_sum.values     / np.where(n_contact.values > 0, n_contact.values, np.nan)
+    result["avg_exit_velo"]  = ev_sum.values        / np.where(n_contact.values > 0, n_contact.values, np.nan)
 
     if "barrel" in pa.columns:
         result["barrel_rate"] = grp["barrel"].sum().values / np.where(n_contact.values > 0, n_contact.values, np.nan)
@@ -172,51 +218,102 @@ def _aggregate_batter_games(sc: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def _compute_batter_features(
-    batter_id: int,
-    batter_history: pd.DataFrame,
-    pitcher_hand: Optional[str],
+# ---------------------------------------------------------------------------
+# MLB Stats API game log features — free, same as pitcher K% data
+# ---------------------------------------------------------------------------
+
+def _get_mlb_log(mlbam_id: int) -> list[dict]:
+    """Fetch current season game log from MLB Stats API. Cached per session."""
+    if mlbam_id in _mlb_log_cache:
+        return _mlb_log_cache[mlbam_id]
+    try:
+        try:
+            from backend.app.data.mlb_api import get_batter_game_log
+        except ImportError:
+            from app.data.mlb_api import get_batter_game_log
+        rows = get_batter_game_log(mlbam_id, date.today().year)
+        _mlb_log_cache[mlbam_id] = rows
+        return rows
+    except Exception:
+        _mlb_log_cache[mlbam_id] = []
+        return []
+
+
+def _features_from_mlb_log(
+    mlbam_id: int,
     is_home: bool,
     home_team_abbr: str,
 ) -> dict:
-    prior    = batter_history.sort_values("game_date")
-    today_ts = pd.Timestamp(date.today())
+    """
+    Compute H/PA rolling features from the MLB Stats API game log.
+    Populates h_per_pa_* and pa_per_game_* features.
+    Statcast contact-quality features remain NaN (not available from Stats API).
+    """
+    rows = _get_mlb_log(mlbam_id)
+
+    feats = _nan_feats(home_team_abbr, is_home)
+    if not rows:
+        return feats
+
+    today  = pd.Timestamp(date.today())
+    df     = pd.DataFrame(rows)
+    df["game_date"] = pd.to_datetime(df["date"])
+
+    def h_per_pa(sub: pd.DataFrame) -> float:
+        total = sub["PA"].sum()
+        return float(sub["H"].sum() / total) if total > 0 else np.nan
+
+    last7   = df[df["game_date"] >= today - pd.Timedelta(days=7)]
+    last14  = df[df["game_date"] >= today - pd.Timedelta(days=14)]
+    last30  = df[df["game_date"] >= today - pd.Timedelta(days=30)]
+    season  = df[df["game_date"].dt.year == today.year]
+
+    feats["h_per_pa_last7"]     = h_per_pa(last7)  if not last7.empty  else np.nan
+    feats["h_per_pa_last14"]    = h_per_pa(last14) if not last14.empty else np.nan
+    feats["h_per_pa_last30"]    = h_per_pa(last30) if not last30.empty else np.nan
+    feats["h_per_pa_season"]    = h_per_pa(season) if not season.empty else np.nan
+    feats["pa_per_game_last14"] = float(last14["PA"].mean()) if not last14.empty else np.nan
+
+    return feats
+
+
+def _compute_batter_features_sc(
+    mlbam_id: int,
+    batter_history: pd.DataFrame,
+    is_home: bool,
+    home_team_abbr: str,
+) -> dict:
+    """Compute features from cached Statcast data (richer: includes contact quality)."""
+    prior   = batter_history.sort_values("game_date")
+    today_t = pd.Timestamp(date.today())
 
     def h_per_pa(df):
         total = df["pa"].sum()
         return float(df["hits"].sum() / total) if total > 0 else np.nan
 
-    last7   = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=7)]
-    last14  = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=14)]
-    last30  = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=30)]
-    last60  = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=60)]
-    season  = prior[prior["game_date"].dt.year == today_ts.year]
+    last7  = prior[prior["game_date"] >= today_t - pd.Timedelta(days=7)]
+    last14 = prior[prior["game_date"] >= today_t - pd.Timedelta(days=14)]
+    last30 = prior[prior["game_date"] >= today_t - pd.Timedelta(days=30)]
+    season = prior[prior["game_date"].dt.year == today_t.year]
 
-    feats = {
-        "h_per_pa_last7":          h_per_pa(last7)   if not last7.empty  else np.nan,
-        "h_per_pa_last14":         h_per_pa(last14)  if not last14.empty else np.nan,
-        "h_per_pa_last30":         h_per_pa(last30)  if not last30.empty else np.nan,
-        "h_per_pa_season":         h_per_pa(season)  if not season.empty else np.nan,
-        "barrel_rate_last30":      float(last30["barrel_rate"].mean())    if not last30.empty else np.nan,
-        "hard_hit_pct_last30":     float(last30["hard_hit_pct"].mean())   if not last30.empty else np.nan,
-        "xba_last30":              float(last30["xba"].mean())            if not last30.empty else np.nan,
-        "avg_exit_velo_last30":    float(last30["avg_exit_velo"].mean())  if not last30.empty else np.nan,
-        "sweet_spot_pct_last30":   float(last30["sweet_spot_pct"].mean()) if not last30.empty else np.nan,
-        "pa_per_game_last14":      float(last14["pa"].mean())             if not last14.empty else np.nan,
-        "h_per_pa_vs_hand_last60": np.nan,
-        "opp_k_pct":               np.nan,
+    return {
+        "h_per_pa_last7":           h_per_pa(last7)  if not last7.empty  else np.nan,
+        "h_per_pa_last14":          h_per_pa(last14) if not last14.empty else np.nan,
+        "h_per_pa_last30":          h_per_pa(last30) if not last30.empty else np.nan,
+        "h_per_pa_season":          h_per_pa(season) if not season.empty else np.nan,
+        "barrel_rate_last30":       float(last30["barrel_rate"].mean())    if not last30.empty else np.nan,
+        "hard_hit_pct_last30":      float(last30["hard_hit_pct"].mean())   if not last30.empty else np.nan,
+        "xba_last30":               float(last30["xba"].mean())            if not last30.empty else np.nan,
+        "avg_exit_velo_last30":     float(last30["avg_exit_velo"].mean())  if not last30.empty else np.nan,
+        "sweet_spot_pct_last30":    float(last30["sweet_spot_pct"].mean()) if not last30.empty else np.nan,
+        "pa_per_game_last14":       float(last14["pa"].mean())             if not last14.empty else np.nan,
+        "h_per_pa_vs_hand_last60":  np.nan,
+        "opp_k_pct":                np.nan,
         "opp_hard_hit_pct_allowed": np.nan,
-        "opp_xba_allowed":         np.nan,
+        "opp_xba_allowed":          np.nan,
         "park_factor": float(_PARK_FACTORS.get(home_team_abbr, 1.0)),
         "is_home":     float(int(is_home)),
     }
-
-    if pitcher_hand and "p_throws" in prior.columns:
-        vs_hand = last60[last60["p_throws"] == pitcher_hand]
-        if not vs_hand.empty:
-            feats["h_per_pa_vs_hand_last60"] = h_per_pa(vs_hand)
-
-    return feats
 
 
 def _nan_feats(home_team_abbr: str, is_home: bool) -> dict:
@@ -241,14 +338,29 @@ def _nan_feats(home_team_abbr: str, is_home: bool) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# DraftKings batter hit lines from the Odds API
+# DraftKings batter hit lines — disk-cached, throttled
 # ---------------------------------------------------------------------------
 
-def _get_batter_hit_lines() -> dict[str, dict]:
+def _get_batter_hit_lines(force_refresh: bool = False) -> dict[str, dict]:
     """
-    Fetch DK batter hit prop lines. Returns {name_lower: {line, over_odds, under_odds,
-    book, home_team_abbr, away_team_abbr}}.
+    Fetch DK batter hit prop lines from Odds API (batter_hits market).
+    Uses a 2-hour disk cache and 30-minute force-refresh throttle.
+    Returns {name_lower: {line, over_odds, under_odds, book,
+                          home_team_abbr, away_team_abbr}}.
     """
+    global _last_hit_fetch_ts
+
+    if force_refresh:
+        age = time.time() - _last_hit_fetch_ts
+        if age < _HIT_REFRESH_MIN_INTERVAL:
+            print(f"  [hitting] force_refresh throttled — last fetch was {int(age / 60)}m ago")
+            force_refresh = False
+
+    if not force_refresh:
+        cached = _load_hit_disk_cache()
+        if cached is not None:
+            return cached
+
     try:
         from backend.app.data.odds_api import _get as _odds_get, PREFERRED_BOOKS
     except ImportError:
@@ -257,7 +369,7 @@ def _get_batter_hit_lines() -> dict[str, dict]:
     SPORT  = "baseball_mlb"
     MARKET = "batter_hits"
 
-    print("[hitting_pipeline] Fetching DK batter hit lines...")
+    print("[hitting_pipeline] Fetching DK batter hit lines from Odds API...")
     try:
         events = _odds_get(f"/sports/{SPORT}/events", {"regions": "us"})
     except Exception as exc:
@@ -323,7 +435,9 @@ def _get_batter_hit_lines() -> dict[str, dict]:
         except Exception as exc:
             print(f"  [hitting_pipeline] event {event_id}: {exc}")
 
-    print(f"[hitting_pipeline] {len(result)} batter hit lines fetched.")
+    print(f"[hitting_pipeline] {len(result)} batter hit lines fetched from API.")
+    _save_hit_disk_cache(result)
+    _last_hit_fetch_ts = time.time()
     return result
 
 
@@ -331,25 +445,29 @@ def _get_batter_hit_lines() -> dict[str, dict]:
 # Main public function
 # ---------------------------------------------------------------------------
 
-def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
+def build_live_hitting_slate(
+    game_date: Optional[str] = None,
+    force_refresh: bool = False,
+) -> list[dict]:
     """
     Build today's batter slate.
 
-    1. Get DK batter hit lines (primary source — same as how pitching gets K lines).
-    2. Get MLB confirmed lineups for team/opponent/home context (best effort).
-    3. Load Statcast features from parquet cache only (never calls pybaseball).
-    4. Return slate; NaN features when Statcast not cached (model handles them).
+    1. Get DK batter hit lines (disk-cached, throttled — protects API credits).
+    2. Get MLB confirmed lineups for team/opponent/home context + MLBAM IDs.
+    3. Compute features: Statcast from parquet cache if available, otherwise
+       MLB Stats API game logs (free, same API used for pitcher K% data).
+    4. Return slate; model handles NaN features natively.
     """
     if game_date is None:
         game_date = date.today().isoformat()
 
-    # Step 1 — DK lines
-    lines = _get_batter_hit_lines()
+    # Step 1 — DK lines (cached)
+    lines = _get_batter_hit_lines(force_refresh=force_refresh)
     if not lines:
-        print("[hitting_pipeline] No DK hit lines found — returning empty slate.")
+        print("[hitting_pipeline] No DK hit lines — returning empty slate.")
         return []
 
-    # Step 2 — MLB lineup context (best effort, not required)
+    # Step 2 — MLB lineup context for MLBAM IDs + team info (best effort)
     lineup_by_name: dict[str, dict] = {}
     try:
         try:
@@ -362,7 +480,7 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
     except Exception as exc:
         print(f"[hitting_pipeline] Lineup lookup skipped: {exc}")
 
-    # Step 3 — Statcast from parquet cache only
+    # Step 3 — Statcast from parquet cache (richer features; may be empty for current season)
     sc = _load_cached_statcast(days=95)
     batter_index: dict[int, pd.DataFrame] = {}
     if not sc.empty:
@@ -372,13 +490,13 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
             int(bid): grp.reset_index(drop=True)
             for bid, grp in game_df.groupby("batter")
         }
-        print(f"[hitting_pipeline] Statcast: {len(batter_index)} batters cached.")
+        print(f"[hitting_pipeline] Statcast cache: {len(batter_index)} batters.")
     else:
-        print("[hitting_pipeline] No cached Statcast data — using NaN features.")
+        print("[hitting_pipeline] No cached Statcast — using MLB Stats API game logs.")
 
     # Step 4 — Build slate
     slate: list[dict] = []
-    seen: set[str] = set()
+    seen:  set[str]   = set()
 
     for name_lower, line_info in lines.items():
         if name_lower in seen:
@@ -389,7 +507,7 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
         away_abbr    = line_info.get("away_team_abbr", "")
         display_name = " ".join(w.capitalize() for w in name_lower.split())
 
-        # Match to confirmed lineup entry by normalized name, then last name
+        # Match to confirmed lineup entry (MLBAM ID + team context)
         lineup_entry = lineup_by_name.get(_norm(display_name))
         if lineup_entry is None:
             last = _norm(display_name).split()[-1] if display_name else ""
@@ -411,12 +529,12 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
             is_home        = True
             home_team_abbr = home_abbr
 
-        batter_history = batter_index.get(mlbam_id) if mlbam_id else None
-        if batter_history is not None and not batter_history.empty:
-            feats = _compute_batter_features(
-                batter_id=mlbam_id, batter_history=batter_history,
-                pitcher_hand=None, is_home=is_home, home_team_abbr=home_team_abbr,
-            )
+        # Feature priority: Statcast cache → MLB Stats API game log → NaN
+        sc_history = batter_index.get(mlbam_id) if mlbam_id else None
+        if sc_history is not None and not sc_history.empty:
+            feats = _compute_batter_features_sc(mlbam_id, sc_history, is_home, home_team_abbr)
+        elif mlbam_id:
+            feats = _features_from_mlb_log(mlbam_id, is_home, home_team_abbr)
         else:
             feats = _nan_feats(home_team_abbr, is_home)
 

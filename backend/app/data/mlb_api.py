@@ -79,6 +79,34 @@ def get_pitcher_game_log(mlbam_id: int, season: int) -> list[dict]:
     return rows
 
 
+def get_batter_game_log(mlbam_id: int, season: int) -> list[dict]:
+    """
+    Returns game-level hitting stats for one batter in one season.
+    Each dict has: date, H, PA, AB.
+    Games with 0 PA are excluded.
+    """
+    data = _get(f"/people/{mlbam_id}/stats", {
+        "stats": "gameLog",
+        "season": season,
+        "group": "hitting",
+    })
+    stats_list = data.get("stats", [])
+    splits = stats_list[0].get("splits", []) if stats_list else []
+    rows = []
+    for s in splits:
+        st = s.get("stat", {})
+        pa = int(st.get("plateAppearances", 0))
+        if pa == 0:
+            continue
+        rows.append({
+            "date": s.get("date", ""),
+            "H":    int(st.get("hits", 0)),
+            "PA":   pa,
+            "AB":   int(st.get("atBats", 0)),
+        })
+    return rows
+
+
 def get_pitcher_multi_season_log(mlbam_id: int, seasons: list[int]) -> list[dict]:
     rows = []
     for season in seasons:
