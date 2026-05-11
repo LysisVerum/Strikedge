@@ -306,8 +306,9 @@ export default function Dashboard() {
                         const renderPick = (pick, i) => pick.locked
                           ? <LockedPickCard key={pick.pitcher_name} pick={pick} index={i} tokens={tokensRemaining} onUnlocked={handleUnlocked} onUpgrade={handleUpgrade} />
                           : <PickCard       key={pick.pitcher_name} pick={pick} index={i} />;
-                        const lined   = picks.filter(p => p.has_line !== false);
-                        const noLined = picks.filter(p => p.has_line === false);
+                        const edgePicks = picks.filter(p => p.has_line !== false && p.recommendation !== 'PASS');
+                        const passPicks = picks.filter(p => p.has_line !== false && p.recommendation === 'PASS' && !p.locked);
+                        const noLined   = picks.filter(p => p.has_line === false);
                         return (
                           <>
                             {!isPremium && (
@@ -324,17 +325,31 @@ export default function Dashboard() {
                               </div>
                             )}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                              {lined.map((pick, i) => renderPick(pick, i))}
+                              {edgePicks.map((pick, i) => renderPick(pick, i))}
+                              {passPicks.length > 0 && (
+                                <>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.4rem 0' }}>
+                                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>No edge — model output only</span>
+                                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                                  </div>
+                                  {passPicks.map((pick, i) => (
+                                    <div key={pick.pitcher_name} style={{ opacity: 0.55 }}>
+                                      <PickCard pick={pick} index={edgePicks.length + i} />
+                                    </div>
+                                  ))}
+                                </>
+                              )}
                               {noLined.length > 0 && (
                                 <>
-                                  {lined.length > 0 && (
+                                  {(edgePicks.length > 0 || passPicks.length > 0) && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.4rem 0' }}>
                                       <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                                       <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>Line unavailable</span>
                                       <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                                     </div>
                                   )}
-                                  {noLined.map((pick, i) => renderPick(pick, lined.length + i))}
+                                  {noLined.map((pick, i) => renderPick(pick, edgePicks.length + passPicks.length + i))}
                                 </>
                               )}
                             </div>

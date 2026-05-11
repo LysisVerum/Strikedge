@@ -63,6 +63,7 @@ from backend.app.data.hitting_log import (
     delete_hitting_prediction, log_hitting_skipped,
     update_hitting_skipped_results, get_hitting_skipped_record,
 )
+from backend.app.data.hitting_pipeline import build_live_hitting_slate
 from backend.app.db import init_db, purge_expired
 from backend.app.auth import generate_magic_link, verify_magic_link, create_session, get_session_email, delete_session
 from backend.app.users import get_user, upsert_user, get_tier, get_token_info, use_token, get_unlocked_today
@@ -748,7 +749,12 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
     if _hitting_store["model_loaded"]:
         print("[mlbet] Running hitting slate...")
         try:
-            h_picks, h_all = _run_hitting_slate(_HITTING_DEMO_SLATE)
+            live_h_slate = build_live_hitting_slate(game_date) or []
+        except Exception as e:
+            print(f"[mlbet] hitting_pipeline error: {e} — using demo slate")
+            live_h_slate = []
+        try:
+            h_picks, h_all = _run_hitting_slate(live_h_slate or _HITTING_DEMO_SLATE)
         except Exception as e:
             print(f"[mlbet] _run_hitting_slate error: {e}")
             h_picks, h_all = [], []
@@ -984,9 +990,12 @@ def today_picks():
     date_str  = date.today().isoformat()
 
     if tier == "premium":
+        # Edge picks first, then PASS picks dimmed on the frontend
+        edge_names = {p["pitcher_name"] for p in all_picks}
+        pass_picks = [p for p in _store["all_processed"] if p["pitcher_name"] not in edge_names]
         return jsonify({
             "date":          date_str,
-            "picks":         all_picks,
+            "picks":         all_picks + pass_picks,
             "total_picks":   len(all_picks),
             "tier":          "premium",
             "model_version": MODEL_VERSION,

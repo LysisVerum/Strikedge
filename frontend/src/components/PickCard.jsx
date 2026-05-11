@@ -207,11 +207,19 @@ export default function PickCard({ pick, index }) {
           </div>
           <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.45rem' }}>
             <span style={{ color: REC_COLORS[pick.recommendation], fontWeight: 700 }}>{pick.bet}</span>
-            {pick.over_odds != null && (
+            {pick.recommendation === 'PASS' && pick.over_odds != null && pick.under_odds != null ? (
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '0.4rem' }}>
+                O {pick.over_odds > 0 ? '+' : ''}{pick.over_odds} / U {pick.under_odds > 0 ? '+' : ''}{pick.under_odds}
+              </span>
+            ) : pick.recommendation === 'UNDER' && pick.under_odds != null ? (
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '0.4rem' }}>
+                ({pick.under_odds > 0 ? '+' : ''}{pick.under_odds})
+              </span>
+            ) : pick.over_odds != null ? (
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '0.4rem' }}>
                 ({pick.over_odds > 0 ? '+' : ''}{pick.over_odds})
               </span>
-            )}
+            ) : null}
             &nbsp;·&nbsp;{pick.matchup}
           </div>
           {pick.live_line ? (
