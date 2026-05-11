@@ -1,33 +1,18 @@
 """
-Live hitting slate pipeline.
+Hitting slate pipeline — mirrors the pitching pipeline.
 
-Fetches DraftKings batter hit prop lines, resolves player IDs, loads recent
-Statcast data from the hitting_cache, computes feature vectors, and returns a
-slate list compatible with _HITTING_DEMO_SLATE / _run_hitting_slate() in app.py.
+1. Fetch DK batter hit lines from the Odds API (batter_hits market).
+2. Optionally enrich with MLB confirmed lineup context (team, opponent, home/away).
+3. Load Statcast features from parquet cache only — never calls pybaseball at runtime.
+4. Returns a slate list for _run_hitting_slate() in app.py.
 
-Public API:
-    slate = build_live_hitting_slate()
-
-Each element of the returned list is a dict:
+Each element:
     {
-        "batter_name": str,
-        "mlbam_id":    int,
-        "team":        str,
-        "opponent_abbr": str,
-        "is_home":     bool,
-        "line":        float,
-        "over_odds":   int,
-        "under_odds":  int,
-        "features":    dict,   # keys == HITTING_FEATURE_COLS
+        batter_name, mlbam_id, team, opponent_abbr, is_home,
+        has_line, line, over_odds, under_odds,
+        features: dict  # HITTING_FEATURE_COLS, NaN when Statcast not cached
     }
-
-The module keeps two module-level caches that survive across calls within a
-single server session:
-    _player_id_cache   {name_lower: {mlbam_id, team}}
-    _sc_month_cache    {(year, month): DataFrame}
 """
-import calendar
-import time
 import unicodedata
 import warnings
 from datetime import date
@@ -39,22 +24,17 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 
-# ---------------------------------------------------------------------------
-# Paths (resolved relative to this file's location)
-# ---------------------------------------------------------------------------
-
-_REPO_ROOT    = Path(__file__).parent.parent.parent          # backend/
-_CACHE_DIR    = _REPO_ROOT / "artifacts" / "hitting_cache"
+_REPO_ROOT = Path(__file__).parent.parent.parent   # backend/
+_CACHE_DIR = _REPO_ROOT / "artifacts" / "hitting_cache"
 
 # ---------------------------------------------------------------------------
-# Static park factors (2025 approximations)
+# Team name → abbreviation (used to parse Odds API event home/away)
 # ---------------------------------------------------------------------------
 
-# Full team name (lowercase) → abbreviation — used to resolve event home/away
 _TEAM_NAME_TO_ABBR: dict[str, str] = {
     "arizona diamondbacks": "ARI", "atlanta braves": "ATL",
     "baltimore orioles": "BAL",    "boston red sox": "BOS",
-    "chicago white sox": "CWS",   "chicago cubs": "CHC",
+    "chicago white sox": "CWS",    "chicago cubs": "CHC",
     "cincinnati reds": "CIN",      "cleveland guardians": "CLE",
     "colorado rockies": "COL",     "detroit tigers": "DET",
     "houston astros": "HOU",       "kansas city royals": "KC",
@@ -79,154 +59,86 @@ _PARK_FACTORS = {
     "MIA": 0.95, "KC":  0.95, "LAA": 0.95, "PIT": 0.94, "SD":  0.94,
 }
 
-# ---------------------------------------------------------------------------
-# Statcast columns we need — keeps memory lean
-# ---------------------------------------------------------------------------
-
 _SC_COLS = [
-    "game_date", "game_pk",
-    "batter",
-    "events",
-    "p_throws",
-    "launch_speed",
-    "launch_angle",
-    "estimated_ba_using_speedangle",
-    "barrel",
-    "inning_topbot",
+    "game_date", "game_pk", "batter", "events", "p_throws",
+    "launch_speed", "launch_angle", "estimated_ba_using_speedangle",
+    "barrel", "inning_topbot",
 ]
-
 _HIT_EVENTS = frozenset(["single", "double", "triple", "home_run"])
-_NON_AB     = frozenset([
-    "walk", "intent_walk", "hit_by_pitch",
-    "sac_fly", "sac_bunt", "sac_fly_double_play", "sac_bunt_double_play",
-    "catcher_interf",
+_NON_AB = frozenset([
+    "walk", "intent_walk", "hit_by_pitch", "sac_fly", "sac_bunt",
+    "sac_fly_double_play", "sac_bunt_double_play", "catcher_interf",
 ])
 
-# ---------------------------------------------------------------------------
-# Module-level caches — persist within a server session
-# ---------------------------------------------------------------------------
-
-_player_id_cache: dict[str, dict] = {}   # name_lower -> {mlbam_id, team}
-_sc_month_cache:  dict[tuple, pd.DataFrame] = {}   # (year, month) -> DataFrame
+_sc_month_cache: dict[tuple, pd.DataFrame] = {}
 
 
 def _norm(name: str) -> str:
-    """Strip accents and lowercase — matches mlb_api._ascii()."""
     return unicodedata.normalize("NFD", name).encode("ascii", "ignore").decode().lower().strip()
 
 
 # ---------------------------------------------------------------------------
-# Statcast helpers
+# Statcast — cache-only, never calls pybaseball at runtime
 # ---------------------------------------------------------------------------
 
-def _load_sc_month(year: int, month: int) -> pd.DataFrame:
-    """Load one month of Statcast, using the parquet cache or pybaseball."""
-    cache_key = (year, month)
-    if cache_key in _sc_month_cache:
-        return _sc_month_cache[cache_key]
+def _load_cached_statcast(days: int = 95) -> pd.DataFrame:
+    """Load from parquet cache only. Returns empty DataFrame if cache misses."""
+    today  = date.today()
+    cutoff = pd.Timestamp(today) - pd.Timedelta(days=days)
 
-    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    path = _CACHE_DIR / f"sc_{year}_{month:02d}.parquet"
-
-    if path.exists():
-        df = pd.read_parquet(path, columns=[c for c in _SC_COLS if True])
-        # Only keep columns we actually have
-        keep = [c for c in _SC_COLS if c in df.columns]
-        df = df[keep].copy()
-        df["game_date"] = pd.to_datetime(df["game_date"])
-        _sc_month_cache[cache_key] = df
-        return df
-
-    today = date.today()
-    if date(year, month, 1) > today:
-        empty = pd.DataFrame(columns=_SC_COLS)
-        _sc_month_cache[cache_key] = empty
-        return empty
-
-    from pybaseball import statcast
-    _, last_day = calendar.monthrange(year, month)
-    start = f"{year}-{month:02d}-01"
-    end   = f"{year}-{month:02d}-{last_day:02d}"
-
-    print(f"  [hitting_pipeline] Fetching Statcast {start} → {end}...", end=" ", flush=True)
-    try:
-        raw = statcast(start, end, parallel=False)
-        if raw is None or raw.empty:
-            result = pd.DataFrame(columns=_SC_COLS)
-        else:
-            keep   = [c for c in _SC_COLS if c in raw.columns]
-            result = raw[keep].copy()
-            result["game_date"] = pd.to_datetime(result["game_date"])
-        result.to_parquet(path, index=False)
-        print(f"{len(result):,} pitches")
-    except Exception as exc:
-        print(f"SKIP ({exc})")
-        result = pd.DataFrame(columns=_SC_COLS)
-
-    _sc_month_cache[cache_key] = result
-    return result
-
-
-def _load_recent_statcast(days: int = 95) -> pd.DataFrame:
-    """
-    Load the last `days` worth of Statcast data (current season only).
-    Returns a concatenated DataFrame covering the required months.
-    """
-    today     = date.today()
-    year      = today.year
-    cutoff    = pd.Timestamp(today) - pd.Timedelta(days=days)
-
-    # Figure out which months to load
-    months_needed = set()
-    cur = date(year, cutoff.month, 1)
+    months: set[tuple] = set()
+    from datetime import date as _date
+    cur = _date(today.year, cutoff.month, 1)
     while cur <= today:
-        months_needed.add((cur.year, cur.month))
-        # advance one month
+        months.add((cur.year, cur.month))
         if cur.month == 12:
-            cur = date(cur.year + 1, 1, 1)
+            cur = _date(cur.year + 1, 1, 1)
         else:
-            cur = date(cur.year, cur.month + 1, 1)
+            cur = _date(cur.year, cur.month + 1, 1)
 
     parts = []
-    for (y, m) in sorted(months_needed):
-        chunk = _load_sc_month(y, m)
-        if not chunk.empty:
-            parts.append(chunk)
+    for (y, m) in sorted(months):
+        key  = (y, m)
+        if key in _sc_month_cache:
+            parts.append(_sc_month_cache[key])
+            continue
+        path = _CACHE_DIR / f"sc_{y}_{m:02d}.parquet"
+        if not path.exists():
+            continue
+        try:
+            df   = pd.read_parquet(path)
+            keep = [c for c in _SC_COLS if c in df.columns]
+            df   = df[keep].copy()
+            df["game_date"] = pd.to_datetime(df["game_date"])
+            _sc_month_cache[key] = df
+            parts.append(df)
+        except Exception:
+            pass
 
     if not parts:
         return pd.DataFrame(columns=_SC_COLS)
 
     df = pd.concat(parts, ignore_index=True)
     df["game_date"] = pd.to_datetime(df["game_date"])
-    # Keep only rows within the rolling window
-    df = df[df["game_date"] >= cutoff].reset_index(drop=True)
-    return df
+    return df[df["game_date"] >= cutoff].reset_index(drop=True)
 
-
-# ---------------------------------------------------------------------------
-# Aggregate Statcast → batter-game level
-# ---------------------------------------------------------------------------
 
 def _aggregate_batter_games(sc: pd.DataFrame) -> pd.DataFrame:
-    """One row per (batter, game_date, game_pk) with rolling metrics."""
     if sc.empty:
         return pd.DataFrame()
-
     pa = sc[sc["events"].notna()].copy()
     if pa.empty:
         return pd.DataFrame()
 
-    pa["is_hit"]      = pa["events"].isin(_HIT_EVENTS).fillna(False).astype(np.int8)
-    pa["is_ab"]       = (~pa["events"].isin(_NON_AB)).fillna(False).astype(np.int8)
-    pa["is_home_bat"] = (pa["inning_topbot"] == "Bot").fillna(False).astype(np.int8)
+    pa["is_hit"]      = pa["events"].isin(_HIT_EVENTS).astype(np.int8)
+    pa["is_ab"]       = (~pa["events"].isin(_NON_AB)).astype(np.int8)
     pa["is_hard_hit"] = (pa["launch_speed"] >= 95).fillna(False).astype(np.int8)
     pa["is_sweet"]    = (
         (pa["launch_angle"] >= 8) & (pa["launch_angle"] <= 32)
     ).fillna(False).astype(np.int8)
     pa["has_contact"] = pa["launch_speed"].notna().astype(np.int8)
 
-    grp = pa.groupby(["batter", "game_date", "game_pk"], sort=False)
-
+    grp          = pa.groupby(["batter", "game_date", "game_pk"], sort=False)
     n_pa         = grp["is_hit"].count()
     hits         = grp["is_hit"].sum()
     n_contact    = grp["has_contact"].sum()
@@ -234,37 +146,21 @@ def _aggregate_batter_games(sc: pd.DataFrame) -> pd.DataFrame:
     sweet_sum    = grp["is_sweet"].sum()
     ev_sum       = grp["launch_speed"].sum()
 
-    result = pd.DataFrame({
-        "hits":      hits,
-        "pa":        n_pa,
-        "n_contact": n_contact,
-    }).reset_index()
-
-    result["hard_hit_pct"] = (
-        hard_hit_sum.values / np.where(n_contact.values > 0, n_contact.values, np.nan)
-    )
-    result["sweet_spot_pct"] = (
-        sweet_sum.values / np.where(n_contact.values > 0, n_contact.values, np.nan)
-    )
-    result["avg_exit_velo"] = (
-        ev_sum.values / np.where(n_contact.values > 0, n_contact.values, np.nan)
-    )
+    result = pd.DataFrame({"hits": hits, "pa": n_pa, "n_contact": n_contact}).reset_index()
+    result["hard_hit_pct"]  = hard_hit_sum.values / np.where(n_contact.values > 0, n_contact.values, np.nan)
+    result["sweet_spot_pct"] = sweet_sum.values  / np.where(n_contact.values > 0, n_contact.values, np.nan)
+    result["avg_exit_velo"] = ev_sum.values       / np.where(n_contact.values > 0, n_contact.values, np.nan)
 
     if "barrel" in pa.columns:
-        barrel_sum = grp["barrel"].sum()
-        result["barrel_rate"] = (
-            barrel_sum.values / np.where(n_contact.values > 0, n_contact.values, np.nan)
-        )
+        result["barrel_rate"] = grp["barrel"].sum().values / np.where(n_contact.values > 0, n_contact.values, np.nan)
     else:
         result["barrel_rate"] = np.nan
 
     if "estimated_ba_using_speedangle" in pa.columns:
-        xba_mean = grp["estimated_ba_using_speedangle"].mean()
-        result["xba"] = xba_mean.values
+        result["xba"] = grp["estimated_ba_using_speedangle"].mean().values
     else:
         result["xba"] = np.nan
 
-    # Pitcher handedness per game (majority vote)
     if "p_throws" in pa.columns:
         p_throws = pa.groupby(["batter", "game_date", "game_pk"])["p_throws"].agg(
             lambda s: s.mode().iloc[0] if not s.mode().empty else np.nan
@@ -276,10 +172,6 @@ def _aggregate_batter_games(sc: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-# ---------------------------------------------------------------------------
-# Rolling feature computation for a single batter
-# ---------------------------------------------------------------------------
-
 def _compute_batter_features(
     batter_id: int,
     batter_history: pd.DataFrame,
@@ -287,48 +179,38 @@ def _compute_batter_features(
     is_home: bool,
     home_team_abbr: str,
 ) -> dict:
-    """
-    Compute all HITTING_FEATURE_COLS from recent game history.
-    Uses np.nan for features that cannot be computed.
-    """
-    prior = batter_history.sort_values("game_date")
+    prior    = batter_history.sort_values("game_date")
+    today_ts = pd.Timestamp(date.today())
 
-    def h_per_pa(df: pd.DataFrame) -> float:
-        total_pa = df["pa"].sum()
-        return float(df["hits"].sum() / total_pa) if total_pa > 0 else np.nan
+    def h_per_pa(df):
+        total = df["pa"].sum()
+        return float(df["hits"].sum() / total) if total > 0 else np.nan
 
-    today_ts  = pd.Timestamp(date.today())
-    last7     = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=7)]
-    last14    = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=14)]
-    last30    = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=30)]
-    last60    = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=60)]
-    season_df = prior[prior["game_date"].dt.year == today_ts.year]
+    last7   = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=7)]
+    last14  = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=14)]
+    last30  = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=30)]
+    last60  = prior[prior["game_date"] >= today_ts - pd.Timedelta(days=60)]
+    season  = prior[prior["game_date"].dt.year == today_ts.year]
 
     feats = {
-        "h_per_pa_last7":   h_per_pa(last7)   if not last7.empty  else np.nan,
-        "h_per_pa_last14":  h_per_pa(last14)  if not last14.empty else np.nan,
-        "h_per_pa_last30":  h_per_pa(last30)  if not last30.empty else np.nan,
-        "h_per_pa_season":  h_per_pa(season_df) if not season_df.empty else np.nan,
-        # Contact quality — 30-day rolling means
-        "barrel_rate_last30":    float(last30["barrel_rate"].mean())    if not last30.empty else np.nan,
-        "hard_hit_pct_last30":   float(last30["hard_hit_pct"].mean())   if not last30.empty else np.nan,
-        "xba_last30":            float(last30["xba"].mean())            if not last30.empty else np.nan,
-        "avg_exit_velo_last30":  float(last30["avg_exit_velo"].mean())  if not last30.empty else np.nan,
-        "sweet_spot_pct_last30": float(last30["sweet_spot_pct"].mean()) if not last30.empty else np.nan,
-        # PA per game proxy (lineup-spot depth)
-        "pa_per_game_last14":    float(last14["pa"].mean()) if not last14.empty else np.nan,
-        # Platoon split — NaN when pitcher hand unknown
+        "h_per_pa_last7":          h_per_pa(last7)   if not last7.empty  else np.nan,
+        "h_per_pa_last14":         h_per_pa(last14)  if not last14.empty else np.nan,
+        "h_per_pa_last30":         h_per_pa(last30)  if not last30.empty else np.nan,
+        "h_per_pa_season":         h_per_pa(season)  if not season.empty else np.nan,
+        "barrel_rate_last30":      float(last30["barrel_rate"].mean())    if not last30.empty else np.nan,
+        "hard_hit_pct_last30":     float(last30["hard_hit_pct"].mean())   if not last30.empty else np.nan,
+        "xba_last30":              float(last30["xba"].mean())            if not last30.empty else np.nan,
+        "avg_exit_velo_last30":    float(last30["avg_exit_velo"].mean())  if not last30.empty else np.nan,
+        "sweet_spot_pct_last30":   float(last30["sweet_spot_pct"].mean()) if not last30.empty else np.nan,
+        "pa_per_game_last14":      float(last14["pa"].mean())             if not last14.empty else np.nan,
         "h_per_pa_vs_hand_last60": np.nan,
-        # Opponent pitcher quality — filled by caller if available, else NaN
-        "opp_k_pct":              np.nan,
+        "opp_k_pct":               np.nan,
         "opp_hard_hit_pct_allowed": np.nan,
-        "opp_xba_allowed":        np.nan,
-        # Context
+        "opp_xba_allowed":         np.nan,
         "park_factor": float(_PARK_FACTORS.get(home_team_abbr, 1.0)),
         "is_home":     float(int(is_home)),
     }
 
-    # Platoon split
     if pitcher_hand and "p_throws" in prior.columns:
         vs_hand = last60[last60["p_throws"] == pitcher_hand]
         if not vs_hand.empty:
@@ -336,168 +218,6 @@ def _compute_batter_features(
 
     return feats
 
-
-# ---------------------------------------------------------------------------
-# DraftKings batter hit lines
-# ---------------------------------------------------------------------------
-
-def _get_batter_hit_lines() -> dict[str, dict]:
-    """
-    Fetch DraftKings batter hit prop lines via The Odds API (batter_hits market).
-
-    Returns {name_lower: {line, over_odds, under_odds, book,
-                          home_team_abbr, away_team_abbr}}
-
-    home/away team abbrs are derived directly from the event so the caller
-    can determine park and opponent without needing a separate matchup lookup.
-    """
-    try:
-        from backend.app.data.odds_api import _get as _odds_get, PREFERRED_BOOKS
-    except ImportError:
-        from app.data.odds_api import _get as _odds_get, PREFERRED_BOOKS
-
-    BATTER_MARKET = "batter_hits"
-    SPORT         = "baseball_mlb"
-    REGIONS       = "us"
-    FMT           = "american"
-
-    print("[hitting_pipeline] Fetching DK batter hit lines via The Odds API...")
-    try:
-        events = _odds_get(f"/sports/{SPORT}/events", {"regions": REGIONS})
-    except Exception as exc:
-        print(f"[hitting_pipeline] Could not fetch events: {exc}")
-        return {}
-
-    if not isinstance(events, list):
-        return {}
-
-    result: dict[str, dict] = {}
-
-    def _book_rank(bm):
-        title = bm.get("title", "")
-        try:
-            return PREFERRED_BOOKS.index(title)
-        except ValueError:
-            return len(PREFERRED_BOOKS)
-
-    for event in events:
-        event_id       = event.get("id")
-        home_team_name = event.get("home_team", "")
-        away_team_name = event.get("away_team", "")
-        home_abbr = _TEAM_NAME_TO_ABBR.get(home_team_name.lower(), "")
-        away_abbr = _TEAM_NAME_TO_ABBR.get(away_team_name.lower(), "")
-
-        if not event_id:
-            continue
-        try:
-            odds = _odds_get(
-                f"/sports/{SPORT}/events/{event_id}/odds",
-                {"regions": REGIONS, "markets": BATTER_MARKET, "oddsFormat": FMT},
-            )
-            bookmakers = sorted(odds.get("bookmakers", []), key=_book_rank)
-
-            for bookmaker in bookmakers:
-                book = bookmaker.get("title", "")
-                for market in bookmaker.get("markets", []):
-                    if market.get("key") != BATTER_MARKET:
-                        continue
-                    outcomes = market.get("outcomes", [])
-                    # First pass: capture over lines
-                    for outcome in outcomes:
-                        name  = (outcome.get("description") or "").strip()
-                        point = outcome.get("point")
-                        price = outcome.get("price")
-                        label = (outcome.get("name") or "").lower()
-                        if not name or point is None or "over" not in label:
-                            continue
-                        key = name.lower()
-                        if key not in result:
-                            result[key] = {
-                                "line":           float(point),
-                                "over_odds":      int(price) if price is not None else -115,
-                                "under_odds":     -115,
-                                "book":           book,
-                                "home_team_abbr": home_abbr,
-                                "away_team_abbr": away_abbr,
-                            }
-                    # Second pass: fill under_odds
-                    for outcome in outcomes:
-                        name  = (outcome.get("description") or "").strip()
-                        price = outcome.get("price")
-                        label = (outcome.get("name") or "").lower()
-                        key   = name.lower()
-                        if (
-                            key in result
-                            and result[key]["book"] == book
-                            and "under" in label
-                            and price is not None
-                        ):
-                            result[key]["under_odds"] = int(price)
-        except Exception as exc:
-            print(f"  [hitting_pipeline] event {event_id}: {exc}")
-
-    print(f"[hitting_pipeline] {len(result)} batter hit lines fetched.")
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Player ID lookup — resolves name → MLBAM ID + team, with persistent cache
-# ---------------------------------------------------------------------------
-
-def _resolve_player_id(name_lower: str) -> Optional[dict]:
-    """
-    Return {mlbam_id, team} for a batter, using the module-level cache.
-    Calls pybaseball.playerid_lookup() on cache miss.
-    """
-    if name_lower in _player_id_cache:
-        return _player_id_cache[name_lower]
-
-    parts = name_lower.strip().split()
-    if len(parts) < 2:
-        return None
-
-    first = parts[0].capitalize()
-    last  = " ".join(parts[1:]).title()
-
-    try:
-        from pybaseball import playerid_lookup
-        result_df = playerid_lookup(last, first, fuzzy=True)
-        if result_df is None or result_df.empty:
-            print(f"  [hitting_pipeline] No MLBAM ID found for '{name_lower}'")
-            return None
-        row      = result_df.iloc[0]
-        mlbam_id = int(row["key_mlbam"])
-        entry    = {"mlbam_id": mlbam_id, "team": ""}
-        _player_id_cache[name_lower] = entry
-        return entry
-    except Exception as exc:
-        print(f"  [hitting_pipeline] playerid_lookup error for '{name_lower}': {exc}")
-        return None
-
-
-def _get_current_team(mlbam_id: int) -> str:
-    """
-    Fetch the player's current team abbreviation from the MLB Stats API.
-    Returns "" on failure.
-    """
-    import urllib.request, json as _json
-    try:
-        url = f"https://statsapi.mlb.com/api/v1/people/{mlbam_id}?hydrate=currentTeam"
-        with urllib.request.urlopen(url, timeout=10) as r:
-            data = _json.loads(r.read())
-        people = data.get("people", [])
-        if not people:
-            return ""
-        team = people[0].get("currentTeam", {})
-        return team.get("abbreviation", "")
-    except Exception as exc:
-        print(f"  [hitting_pipeline] currentTeam lookup failed for {mlbam_id}: {exc}")
-        return ""
-
-
-# ---------------------------------------------------------------------------
-# Main public function
-# ---------------------------------------------------------------------------
 
 def _nan_feats(home_team_abbr: str, is_home: bool) -> dict:
     return {
@@ -512,7 +232,7 @@ def _nan_feats(home_team_abbr: str, is_home: bool) -> dict:
         "sweet_spot_pct_last30":    np.nan,
         "pa_per_game_last14":       np.nan,
         "h_per_pa_vs_hand_last60":  np.nan,
-        "opp_k_pct":               np.nan,
+        "opp_k_pct":                np.nan,
         "opp_hard_hit_pct_allowed": np.nan,
         "opp_xba_allowed":          np.nan,
         "park_factor": float(_PARK_FACTORS.get(home_team_abbr, 1.0)),
@@ -520,196 +240,198 @@ def _nan_feats(home_team_abbr: str, is_home: bool) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# DraftKings batter hit lines from the Odds API
+# ---------------------------------------------------------------------------
+
+def _get_batter_hit_lines() -> dict[str, dict]:
+    """
+    Fetch DK batter hit prop lines. Returns {name_lower: {line, over_odds, under_odds,
+    book, home_team_abbr, away_team_abbr}}.
+    """
+    try:
+        from backend.app.data.odds_api import _get as _odds_get, PREFERRED_BOOKS
+    except ImportError:
+        from app.data.odds_api import _get as _odds_get, PREFERRED_BOOKS
+
+    SPORT  = "baseball_mlb"
+    MARKET = "batter_hits"
+
+    print("[hitting_pipeline] Fetching DK batter hit lines...")
+    try:
+        events = _odds_get(f"/sports/{SPORT}/events", {"regions": "us"})
+    except Exception as exc:
+        print(f"[hitting_pipeline] Could not fetch events: {exc}")
+        return {}
+
+    if not isinstance(events, list):
+        return {}
+
+    def _book_rank(bm):
+        title = bm.get("title", "")
+        try:
+            return PREFERRED_BOOKS.index(title)
+        except ValueError:
+            return len(PREFERRED_BOOKS)
+
+    result: dict[str, dict] = {}
+
+    for event in events:
+        event_id       = event.get("id")
+        home_team_name = event.get("home_team", "")
+        away_team_name = event.get("away_team", "")
+        home_abbr = _TEAM_NAME_TO_ABBR.get(home_team_name.lower(), "")
+        away_abbr = _TEAM_NAME_TO_ABBR.get(away_team_name.lower(), "")
+        if not event_id:
+            continue
+        try:
+            odds = _odds_get(
+                f"/sports/{SPORT}/events/{event_id}/odds",
+                {"regions": "us", "markets": MARKET, "oddsFormat": "american"},
+            )
+            bookmakers = sorted(odds.get("bookmakers", []), key=_book_rank)
+            for bm in bookmakers:
+                book = bm.get("title", "")
+                for mkt in bm.get("markets", []):
+                    if mkt.get("key") != MARKET:
+                        continue
+                    outcomes = mkt.get("outcomes", [])
+                    for o in outcomes:
+                        name  = (o.get("description") or "").strip()
+                        point = o.get("point")
+                        price = o.get("price")
+                        label = (o.get("name") or "").lower()
+                        if not name or point is None or "over" not in label:
+                            continue
+                        key = name.lower()
+                        if key not in result:
+                            result[key] = {
+                                "line":           float(point),
+                                "over_odds":      int(price) if price is not None else -115,
+                                "under_odds":     -115,
+                                "book":           book,
+                                "home_team_abbr": home_abbr,
+                                "away_team_abbr": away_abbr,
+                            }
+                    for o in outcomes:
+                        name  = (o.get("description") or "").strip()
+                        price = o.get("price")
+                        label = (o.get("name") or "").lower()
+                        key   = name.lower()
+                        if key in result and result[key]["book"] == book and "under" in label and price is not None:
+                            result[key]["under_odds"] = int(price)
+        except Exception as exc:
+            print(f"  [hitting_pipeline] event {event_id}: {exc}")
+
+    print(f"[hitting_pipeline] {len(result)} batter hit lines fetched.")
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Main public function
+# ---------------------------------------------------------------------------
+
 def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
     """
-    Build a live batter slate compatible with _run_hitting_slate() in app.py.
+    Build today's batter slate.
 
-    Primary source: MLB confirmed batting lineups (all 9 batters per team).
-    Secondary overlay: Odds API DK hit lines matched by MLBAM ID.
-    Batters without a DK line are included with has_line=False.
-
-    Falls back to Odds API-only (original behavior) when lineups are not yet
-    submitted (early morning before posting, typically 1-2h before first pitch).
+    1. Get DK batter hit lines (primary source — same as how pitching gets K lines).
+    2. Get MLB confirmed lineups for team/opponent/home context (best effort).
+    3. Load Statcast features from parquet cache only (never calls pybaseball).
+    4. Return slate; NaN features when Statcast not cached (model handles them).
     """
     if game_date is None:
         game_date = date.today().isoformat()
 
-    # Step 1 — Odds API lines, keyed by lowercased player name
+    # Step 1 — DK lines
     lines = _get_batter_hit_lines()
-    print(f"[hitting_pipeline] {len(lines)} DK hit lines fetched.")
-
-    # Step 2 — Build name-keyed lookup (always works) + best-effort MLBAM ID lookup
-    lines_by_name: dict[str, dict] = {}   # _norm(name) -> line_info
-    lines_by_id:   dict[int, dict] = {}   # mlbam_id -> line_info (pybaseball, may be empty)
-
-    for name_lower, line_info in lines.items():
-        lines_by_name[_norm(name_lower)] = line_info
-
-    # Attempt MLBAM resolution; don't block/fail the pipeline if pybaseball is down
-    for name_lower, line_info in lines.items():
-        entry = _resolve_player_id(name_lower)
-        if entry:
-            mid = entry["mlbam_id"]
-            if mid not in lines_by_id:
-                lines_by_id[mid] = line_info
-
-    # Step 3 — Try MLB confirmed lineups as primary slate source
-    try:
-        from backend.app.data.mlb_api import get_todays_lineup_batters
-    except ImportError:
-        from app.data.mlb_api import get_todays_lineup_batters
-
-    lineup_batters = get_todays_lineup_batters(game_date)
-    print(f"[hitting_pipeline] {len(lineup_batters)} confirmed lineup batters from MLB API.")
-
-    use_lineup = bool(lineup_batters)
-    if not use_lineup and not lines:
-        print("[hitting_pipeline] No lineup batters and no DK lines — returning empty slate.")
+    if not lines:
+        print("[hitting_pipeline] No DK hit lines found — returning empty slate.")
         return []
 
-    # Step 4 — Load Statcast rolling features
-    print("[hitting_pipeline] Loading Statcast (~90 days)...")
-    t0 = time.time()
-    sc = _load_recent_statcast(days=95)
-    print(f"[hitting_pipeline] {len(sc):,} pitches loaded in {time.time()-t0:.1f}s.")
+    # Step 2 — MLB lineup context (best effort, not required)
+    lineup_by_name: dict[str, dict] = {}
+    try:
+        try:
+            from backend.app.data.mlb_api import get_todays_lineup_batters
+        except ImportError:
+            from app.data.mlb_api import get_todays_lineup_batters
+        for b in get_todays_lineup_batters(game_date):
+            lineup_by_name[_norm(b["full_name"])] = b
+        print(f"[hitting_pipeline] {len(lineup_by_name)} confirmed lineup batters.")
+    except Exception as exc:
+        print(f"[hitting_pipeline] Lineup lookup skipped: {exc}")
 
+    # Step 3 — Statcast from parquet cache only
+    sc = _load_cached_statcast(days=95)
+    batter_index: dict[int, pd.DataFrame] = {}
     if not sc.empty:
-        print("[hitting_pipeline] Aggregating batter-game rows...")
         game_df = _aggregate_batter_games(sc)
         game_df["game_date"] = pd.to_datetime(game_df["game_date"])
-        batter_index: dict[int, pd.DataFrame] = {
+        batter_index = {
             int(bid): grp.reset_index(drop=True)
             for bid, grp in game_df.groupby("batter")
         }
-        print(f"[hitting_pipeline] {len(game_df):,} batter-game rows for {len(batter_index)} batters.")
+        print(f"[hitting_pipeline] Statcast: {len(batter_index)} batters cached.")
     else:
-        batter_index = {}
+        print("[hitting_pipeline] No cached Statcast data — using NaN features.")
 
+    # Step 4 — Build slate
     slate: list[dict] = []
+    seen: set[str] = set()
 
-    if use_lineup:
-        # ── Lineup-primary mode ────────────────────────────────────────────
-        seen_ids: set[int] = set()
-        no_line_count = 0
+    for name_lower, line_info in lines.items():
+        if name_lower in seen:
+            continue
+        seen.add(name_lower)
 
-        for batter in lineup_batters:
-            mlbam_id = batter["mlbam_id"]
-            if mlbam_id in seen_ids:
-                continue
-            seen_ids.add(mlbam_id)
+        home_abbr    = line_info.get("home_team_abbr", "")
+        away_abbr    = line_info.get("away_team_abbr", "")
+        display_name = " ".join(w.capitalize() for w in name_lower.split())
 
-            home_team_abbr = batter["home_team_abbr"]
-            is_home        = batter["is_home"]
-            team_abbr      = batter["team_abbr"]
-            opponent_abbr  = batter["opponent_abbr"]
-            display_name   = batter["full_name"]
+        # Match to confirmed lineup entry by normalized name, then last name
+        lineup_entry = lineup_by_name.get(_norm(display_name))
+        if lineup_entry is None:
+            last = _norm(display_name).split()[-1] if display_name else ""
+            for k, v in lineup_by_name.items():
+                if last and k.split()[-1] == last:
+                    lineup_entry = v
+                    break
 
-            # Try MLBAM ID match first, fall back to normalized name, then last name
-            line_info = lines_by_id.get(mlbam_id)
-            if line_info is None:
-                norm = _norm(display_name)
-                line_info = lines_by_name.get(norm)
-            if line_info is None:
-                last = _norm(display_name).split()[-1] if display_name else ""
-                for k, v in lines_by_name.items():
-                    if last and k.split()[-1] == last:
-                        line_info = v
-                        break
-            has_line  = line_info is not None
-            if not has_line:
-                no_line_count += 1
+        if lineup_entry:
+            mlbam_id       = lineup_entry["mlbam_id"]
+            team_abbr      = lineup_entry["team_abbr"]
+            opponent_abbr  = lineup_entry["opponent_abbr"]
+            is_home        = lineup_entry["is_home"]
+            home_team_abbr = lineup_entry["home_team_abbr"]
+        else:
+            mlbam_id       = 0
+            team_abbr      = home_abbr or "???"
+            opponent_abbr  = away_abbr or "???"
+            is_home        = True
+            home_team_abbr = home_abbr
 
-            batter_history = batter_index.get(mlbam_id)
-            if batter_history is None or batter_history.empty:
-                feats = _nan_feats(home_team_abbr, is_home)
-            else:
-                feats = _compute_batter_features(
-                    batter_id      = mlbam_id,
-                    batter_history = batter_history,
-                    pitcher_hand   = None,
-                    is_home        = is_home,
-                    home_team_abbr = home_team_abbr,
-                )
+        batter_history = batter_index.get(mlbam_id) if mlbam_id else None
+        if batter_history is not None and not batter_history.empty:
+            feats = _compute_batter_features(
+                batter_id=mlbam_id, batter_history=batter_history,
+                pitcher_hand=None, is_home=is_home, home_team_abbr=home_team_abbr,
+            )
+        else:
+            feats = _nan_feats(home_team_abbr, is_home)
 
-            slate.append({
-                "batter_name":   display_name,
-                "mlbam_id":      mlbam_id,
-                "team":          team_abbr or "???",
-                "opponent_abbr": opponent_abbr,
-                "is_home":       is_home,
-                "has_line":      has_line,
-                "line":          line_info["line"]       if has_line else 1.5,
-                "over_odds":     line_info["over_odds"]  if has_line else -115,
-                "under_odds":    line_info["under_odds"] if has_line else -115,
-                "features":      feats,
-            })
+        slate.append({
+            "batter_name":   display_name,
+            "mlbam_id":      mlbam_id,
+            "team":          team_abbr,
+            "opponent_abbr": opponent_abbr,
+            "is_home":       is_home,
+            "has_line":      True,
+            "line":          line_info["line"],
+            "over_odds":     line_info["over_odds"],
+            "under_odds":    line_info["under_odds"],
+            "features":      feats,
+        })
 
-        print(
-            f"[hitting_pipeline] Slate: {len(slate)} batters "
-            f"({len(lines_by_id)} with DK lines, {no_line_count} no-line)."
-        )
-
-    else:
-        # ── Odds API-only fallback (no confirmed lineups yet) ──────────────
-        no_id_count = 0
-        for name_lower, line_info in lines.items():
-            player_entry = _resolve_player_id(name_lower)
-            mlbam_id     = player_entry["mlbam_id"] if player_entry else 0
-            if not player_entry:
-                no_id_count += 1
-
-            home_abbr = line_info.get("home_team_abbr", "")
-            away_abbr = line_info.get("away_team_abbr", "")
-            team_abbr = player_entry.get("team", "") if player_entry else ""
-            if not team_abbr and mlbam_id:
-                team_abbr = _get_current_team(mlbam_id)
-                if player_entry:
-                    player_entry["team"] = team_abbr
-                    if name_lower in _player_id_cache:
-                        _player_id_cache[name_lower]["team"] = team_abbr
-
-            if team_abbr and home_abbr and team_abbr == home_abbr:
-                is_home        = True
-                opponent_abbr  = away_abbr or "???"
-                home_team_abbr = home_abbr
-            elif team_abbr and away_abbr and team_abbr == away_abbr:
-                is_home        = False
-                opponent_abbr  = home_abbr or "???"
-                home_team_abbr = home_abbr
-            else:
-                is_home        = True
-                opponent_abbr  = away_abbr or "???"
-                home_team_abbr = home_abbr or team_abbr or ""
-
-            batter_history = batter_index.get(mlbam_id) if mlbam_id else None
-            if batter_history is None or batter_history.empty:
-                feats = _nan_feats(home_team_abbr, is_home)
-            else:
-                feats = _compute_batter_features(
-                    batter_id      = mlbam_id,
-                    batter_history = batter_history,
-                    pitcher_hand   = None,
-                    is_home        = is_home,
-                    home_team_abbr = home_team_abbr,
-                )
-
-            display_name = " ".join(w.capitalize() for w in name_lower.split())
-            slate.append({
-                "batter_name":   display_name,
-                "mlbam_id":      mlbam_id,
-                "team":          team_abbr or "???",
-                "opponent_abbr": opponent_abbr,
-                "is_home":       is_home,
-                "has_line":      True,
-                "line":          line_info["line"],
-                "over_odds":     line_info["over_odds"],
-                "under_odds":    line_info["under_odds"],
-                "features":      feats,
-            })
-
-        print(
-            f"[hitting_pipeline] Slate: {len(slate)} batters "
-            f"({no_id_count} without resolved MLBAM ID — still included with NaN features)."
-        )
-
+    print(f"[hitting_pipeline] Slate: {len(slate)} batters.")
     return slate
