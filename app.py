@@ -586,6 +586,8 @@ def _run_hitting_slate(slate: list[dict]) -> tuple[list, list]:
                     "h7":       _safe(fv.get("h_per_pa_last7")),
                     "h14":      _safe(fv.get("h_per_pa_last14")),
                     "h30":      _safe(fv.get("h_per_pa_last30")),
+                    "h60":      _safe(fv.get("_h60")),
+                    "h90":      _safe(fv.get("_h90")),
                     "hs":       _safe(fv.get("h_per_pa_season")),
                     "barrel":   _safe(fv.get("barrel_rate_last30")),
                     "hard_hit": _safe(fv.get("hard_hit_pct_last30")),

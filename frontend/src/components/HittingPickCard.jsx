@@ -119,9 +119,18 @@ function HittingPickDetail({ pick }) {
         {/* Hit rate trend */}
         <div>
           <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Hit Rate Trend</p>
-          <StatBar label="Last 7 days"  value={f.h7}  max={0.45} color={ACCENT} />
-          <StatBar label="Last 14 days" value={f.h14} max={0.45} color={ACCENT} />
-          <StatBar label="Last 30 days" value={f.h30} max={0.45} color="rgba(249,115,22,0.6)" />
+          {/* If recent data missing, fall back to 60/90-day windows (IL return, etc.) */}
+          {(f.h7 != null || f.h14 != null || f.h30 != null) ? (<>
+            <StatBar label="Last 7 days"  value={f.h7}  max={0.45} color={ACCENT} />
+            <StatBar label="Last 14 days" value={f.h14} max={0.45} color={ACCENT} />
+            <StatBar label="Last 30 days" value={f.h30} max={0.45} color="rgba(249,115,22,0.6)" />
+          </>) : (<>
+            <StatBar label="Last 60 days" value={f.h60} max={0.45} color="rgba(249,115,22,0.5)" />
+            <StatBar label="Last 90 days" value={f.h90} max={0.45} color="rgba(249,115,22,0.35)" />
+            {(f.h60 == null && f.h90 == null) && (
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>No recent game data available</div>
+            )}
+          </>)}
           <StatBar label="Season"       value={f.hs}  max={0.45} color="var(--text-secondary)" />
           <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             vs this hand (last 60d):&nbsp;

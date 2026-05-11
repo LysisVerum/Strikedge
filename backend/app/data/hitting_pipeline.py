@@ -265,7 +265,12 @@ def _aggregate_batter_games(sc: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def _get_mlb_log(mlbam_id: int) -> list[dict]:
-    """Fetch current season game log from MLB Stats API. Cached per session."""
+    """
+    Fetch game log from MLB Stats API for current + prior season.
+    Fetching two seasons ensures players returning from IL still have recent
+    stats from late last year (e.g., April returner has March prior-season data).
+    Cached per session.
+    """
     if mlbam_id in _mlb_log_cache:
         return _mlb_log_cache[mlbam_id]
     try:
@@ -273,7 +278,14 @@ def _get_mlb_log(mlbam_id: int) -> list[dict]:
             from backend.app.data.mlb_api import get_batter_game_log
         except ImportError:
             from app.data.mlb_api import get_batter_game_log
-        rows = get_batter_game_log(mlbam_id, date.today().year)
+        year = date.today().year
+        rows_this = get_batter_game_log(mlbam_id, year)
+        rows_last: list[dict] = []
+        try:
+            rows_last = get_batter_game_log(mlbam_id, year - 1)
+        except Exception:
+            pass
+        rows = rows_this + rows_last
         _mlb_log_cache[mlbam_id] = rows
         return rows
     except Exception:
@@ -287,9 +299,10 @@ def _features_from_mlb_log(
     home_team_abbr: str,
 ) -> dict:
     """
-    Compute H/PA rolling features from the MLB Stats API game log.
+    Compute H/PA rolling features from the MLB Stats API game log (2 seasons).
     Populates h_per_pa_* and pa_per_game_* features.
     Statcast contact-quality features remain NaN (not available from Stats API).
+    Also adds h60/h90 as display-only fallback fields for the UI.
     """
     rows = _get_mlb_log(mlbam_id)
 
@@ -297,8 +310,8 @@ def _features_from_mlb_log(
     if not rows:
         return feats
 
-    today  = pd.Timestamp(date.today())
-    df     = pd.DataFrame(rows)
+    today = pd.Timestamp(date.today())
+    df    = pd.DataFrame(rows)
     df["game_date"] = pd.to_datetime(df["date"])
 
     def h_per_pa(sub: pd.DataFrame) -> float:
@@ -308,13 +321,23 @@ def _features_from_mlb_log(
     last7   = df[df["game_date"] >= today - pd.Timedelta(days=7)]
     last14  = df[df["game_date"] >= today - pd.Timedelta(days=14)]
     last30  = df[df["game_date"] >= today - pd.Timedelta(days=30)]
+    last60  = df[df["game_date"] >= today - pd.Timedelta(days=60)]
+    last90  = df[df["game_date"] >= today - pd.Timedelta(days=90)]
     season  = df[df["game_date"].dt.year == today.year]
 
     feats["h_per_pa_last7"]     = h_per_pa(last7)  if not last7.empty  else np.nan
     feats["h_per_pa_last14"]    = h_per_pa(last14) if not last14.empty else np.nan
     feats["h_per_pa_last30"]    = h_per_pa(last30) if not last30.empty else np.nan
     feats["h_per_pa_season"]    = h_per_pa(season) if not season.empty else np.nan
-    feats["pa_per_game_last14"] = float(last14["PA"].mean()) if not last14.empty else np.nan
+    feats["pa_per_game_last14"] = (
+        float(last14["PA"].mean()) if not last14.empty
+        else float(last30["PA"].mean()) if not last30.empty
+        else float(last60["PA"].mean()) if not last60.empty
+        else np.nan
+    )
+    # Extra display-only fields (not model features) for fallback bars in the UI
+    feats["_h60"] = h_per_pa(last60) if not last60.empty else np.nan
+    feats["_h90"] = h_per_pa(last90) if not last90.empty else np.nan
 
     return feats
 
