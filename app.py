@@ -511,15 +511,18 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
     return meaningful, picks
 
 
-def _run_hitting_slate(demo_slate: list[dict]) -> tuple[list, list]:
+def _run_hitting_slate(slate: list[dict]) -> tuple[list, list]:
     """
-    Run the hitting model over the demo batter slate.
+    Run the hitting model over the batter slate.
     Returns (edge_picks, all_processed) — same contract as _run_slate().
+    Batters with has_line=False are included in all_processed for model projections
+    but are never surfaced as edge picks or given a bet recommendation.
     """
     import numpy as np
     picks = []
-    for batter in demo_slate:
-        name = batter["batter_name"]
+    for batter in slate:
+        name     = batter["batter_name"]
+        has_line = batter.get("has_line", True)
         try:
             fv   = batter["features"]
             row  = pd.Series({col: fv.get(col, np.nan) for col in HITTING_FEATURE_COLS})
@@ -538,22 +541,26 @@ def _run_hitting_slate(demo_slate: list[dict]) -> tuple[list, list]:
                 matchup      = matchup,
             )
 
-            if pred.recommendation == "OVER":
+            # Force PASS for batters without a real DK line — model has no real implied prob
+            recommendation = "PASS" if not has_line else pred.recommendation
+            edge_pct       = pred.edge_pct if has_line else 0.0
+
+            if recommendation == "OVER":
                 model_prob_win = pred.model_prob_over
                 bet_odds       = over_odds
-            elif pred.recommendation == "UNDER":
+            elif recommendation == "UNDER":
                 model_prob_win = 1 - pred.model_prob_over
                 bet_odds       = under_odds
             else:
                 model_prob_win = 0.0
                 bet_odds       = over_odds
 
-            recommended_bet = _kelly_bet(model_prob_win, bet_odds)
-            side = "Under" if pred.recommendation == "UNDER" else "Over"
+            recommended_bet = _kelly_bet(model_prob_win, bet_odds) if has_line else 0
+            side = "Under" if recommendation == "UNDER" else "Over"
 
             picks.append({
                 "rank":              0,
-                "has_line":          True,
+                "has_line":          has_line,
                 "live_line":         False,
                 "mlbam_id":          batter["mlbam_id"],
                 "batter_name":       pred.batter_name,
@@ -563,14 +570,14 @@ def _run_hitting_slate(demo_slate: list[dict]) -> tuple[list, list]:
                 "bet":               f"{side} {pred.line} H",
                 "predicted_hits":    pred.predicted_hits,
                 "line":              pred.line,
-                "line_source":       "model",
+                "line_source":       "live" if has_line else "model",
                 "over_odds":         over_odds,
                 "under_odds":        under_odds,
                 "bet_odds":          bet_odds,
-                "edge_pct_display":  _format_edge(pred.edge_pct),
-                "edge_pct":          pred.edge_pct,
-                "confidence":        pred.confidence,
-                "recommendation":    pred.recommendation,
+                "edge_pct_display":  _format_edge(edge_pct),
+                "edge_pct":          edge_pct,
+                "confidence":        pred.confidence if has_line else "LOW",
+                "recommendation":    recommendation,
                 "model_prob_over":   pred.model_prob_over,
                 "implied_prob_over": pred.implied_prob_over,
                 "recommended_bet":   recommended_bet,
@@ -597,14 +604,18 @@ def _run_hitting_slate(demo_slate: list[dict]) -> tuple[list, list]:
 
     meaningful = [
         p for p in picks
-        if (p["recommendation"] == "UNDER" and abs(p["edge_pct"]) >= MIN_EDGE_UNDER)
-        or (p["recommendation"] == "OVER"  and abs(p["edge_pct"]) >= MIN_EDGE_OVER)
+        if p.get("has_line", True)
+        and (
+            (p["recommendation"] == "UNDER" and abs(p["edge_pct"]) >= MIN_EDGE_UNDER)
+            or (p["recommendation"] == "OVER"  and abs(p["edge_pct"]) >= MIN_EDGE_OVER)
+        )
     ]
     meaningful.sort(key=lambda p: abs(p["edge_pct"]), reverse=True)
     for i, p in enumerate(meaningful):
         p["rank"] = i + 1
 
-    picks.sort(key=lambda p: abs(p["edge_pct"]), reverse=True)
+    # Sort: has-line batters by edge desc, then no-line batters at bottom
+    picks.sort(key=lambda p: (0 if p.get("has_line", True) else 1, -abs(p["edge_pct"])))
     meaningful_names = {p["batter_name"] for p in meaningful}
     for p in picks:
         p["actionable"] = p["batter_name"] in meaningful_names

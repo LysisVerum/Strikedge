@@ -139,8 +139,67 @@ function HittingPickDetail({ pick }) {
   );
 }
 
+function NoLineBatterCard({ pick, index }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.07, duration: 0.4 }}
+      style={{
+        borderRadius: 12,
+        border: '1px solid var(--border)',
+        background: 'var(--bg-card)',
+        overflow: 'hidden',
+        opacity: 0.72,
+      }}
+    >
+      <div
+        onClick={() => setOpen(v => !v)}
+        style={{
+          padding: '1.1rem 1.5rem',
+          display: 'grid',
+          gridTemplateColumns: '2rem 1fr auto 1.5rem',
+          gap: '1rem',
+          alignItems: 'center',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+      >
+        <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-muted)', textAlign: 'center' }}>–</div>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
+            <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>{pick.batter_name}</span>
+            <span style={{
+              fontSize: '0.68rem', fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+              background: 'rgba(139,148,158,0.10)', border: '1px solid rgba(139,148,158,0.25)',
+              color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em',
+            }}>No line</span>
+          </div>
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{pick.matchup}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--text-secondary)', fontFamily: 'Space Grotesk, sans-serif', lineHeight: 1 }}>
+            ~{pick.predicted_hits}
+          </div>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2 }}>proj H</div>
+        </div>
+        <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronDown size={16} color="var(--text-muted)" />
+        </motion.div>
+      </div>
+      <AnimatePresence>
+        {open && <HittingPickDetail key="detail" pick={pick} />}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 export default function HittingPickCard({ pick, index }) {
   const [open, setOpen] = useState(false);
+  if (pick.has_line === false) return <NoLineBatterCard pick={pick} index={index} />;
 
   const conf = CONF_COLORS[pick.confidence] ?? CONF_COLORS.LOW;
   const edgeVal   = parseFloat(pick.edge_pct_display);

@@ -460,9 +460,10 @@ export default function Dashboard() {
                       {!hLoading && !hError && (
                         <>
                           {(() => {
-                            const edgePicks   = hPicks.filter(p => !p.locked && p.recommendation !== 'PASS');
-                            const passPicks   = hPicks.filter(p => !p.locked && p.recommendation === 'PASS');
-                            const lockedPicks = hPicks.filter(p => p.locked);
+                            const edgePicks    = hPicks.filter(p => !p.locked && p.has_line !== false && p.recommendation !== 'PASS');
+                            const passPicks    = hPicks.filter(p => !p.locked && p.has_line !== false && p.recommendation === 'PASS');
+                            const noLinedPicks = hPicks.filter(p => p.has_line === false);
+                            const lockedPicks  = hPicks.filter(p => p.locked);
                             return (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                                 {edgePicks.map((pick, i) => (
@@ -479,6 +480,20 @@ export default function Dashboard() {
                                       <div key={pick.batter_name} style={{ opacity: 0.55 }}>
                                         <HittingPickCard pick={pick} index={edgePicks.length + i} />
                                       </div>
+                                    ))}
+                                  </>
+                                )}
+                                {noLinedPicks.length > 0 && (
+                                  <>
+                                    {(edgePicks.length > 0 || passPicks.length > 0) && (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.4rem 0' }}>
+                                        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>Line unavailable</span>
+                                        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                                      </div>
+                                    )}
+                                    {noLinedPicks.map((pick, i) => (
+                                      <HittingPickCard key={pick.batter_name} pick={pick} index={edgePicks.length + passPicks.length + i} />
                                     ))}
                                   </>
                                 )}

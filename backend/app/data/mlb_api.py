@@ -245,6 +245,66 @@ def get_team_matchups_today(game_date: str = None) -> dict[str, dict]:
 
 
 # ---------------------------------------------------------------------------
+# Today's confirmed batting lineups
+# ---------------------------------------------------------------------------
+
+def get_todays_lineup_batters(game_date: str = None) -> list[dict]:
+    """
+    Returns all confirmed batting lineup members for today's games.
+    Each dict: mlbam_id, full_name, team_abbr, opponent_abbr, home_team_abbr, is_home.
+    Returns empty list when lineups have not yet been submitted.
+    Reuses the cached schedule response from get_todays_starters() when called same day.
+    """
+    if game_date is None:
+        game_date = date.today().isoformat()
+
+    data = _get("/schedule", {
+        "sportId":  1,
+        "date":     game_date,
+        "gameType": "R",
+        "hydrate":  "probablePitcher,team,lineups",
+    })
+
+    batters = []
+    for date_entry in data.get("dates", []):
+        for game in date_entry.get("games", []):
+            lineups      = game.get("lineups", {})
+            home_players = lineups.get("homePlayers", [])
+            away_players = lineups.get("awayPlayers", [])
+            if not home_players and not away_players:
+                continue
+
+            home_abbr = game["teams"]["home"]["team"].get("abbreviation", "")
+            away_abbr = game["teams"]["away"]["team"].get("abbreviation", "")
+
+            for player in home_players:
+                pid = player.get("id")
+                if pid:
+                    batters.append({
+                        "mlbam_id":       int(pid),
+                        "full_name":      player.get("fullName", ""),
+                        "team_abbr":      home_abbr,
+                        "opponent_abbr":  away_abbr,
+                        "home_team_abbr": home_abbr,
+                        "is_home":        True,
+                    })
+
+            for player in away_players:
+                pid = player.get("id")
+                if pid:
+                    batters.append({
+                        "mlbam_id":       int(pid),
+                        "full_name":      player.get("fullName", ""),
+                        "team_abbr":      away_abbr,
+                        "opponent_abbr":  home_abbr,
+                        "home_team_abbr": home_abbr,
+                        "is_home":        False,
+                    })
+
+    return batters
+
+
+# ---------------------------------------------------------------------------
 # Pitcher lookup by name
 # ---------------------------------------------------------------------------
 

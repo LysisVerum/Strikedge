@@ -28,6 +28,7 @@ single server session:
 """
 import calendar
 import time
+import unicodedata
 import warnings
 from datetime import date
 from pathlib import Path
@@ -107,6 +108,11 @@ _NON_AB     = frozenset([
 
 _player_id_cache: dict[str, dict] = {}   # name_lower -> {mlbam_id, team}
 _sc_month_cache:  dict[tuple, pd.DataFrame] = {}   # (year, month) -> DataFrame
+
+
+def _norm(name: str) -> str:
+    """Strip accents and lowercase — matches mlb_api._ascii()."""
+    return unicodedata.normalize("NFD", name).encode("ascii", "ignore").decode().lower().strip()
 
 
 # ---------------------------------------------------------------------------
@@ -493,26 +499,70 @@ def _get_current_team(mlbam_id: int) -> str:
 # Main public function
 # ---------------------------------------------------------------------------
 
+def _nan_feats(home_team_abbr: str, is_home: bool) -> dict:
+    return {
+        "h_per_pa_last7":           np.nan,
+        "h_per_pa_last14":          np.nan,
+        "h_per_pa_last30":          np.nan,
+        "h_per_pa_season":          np.nan,
+        "barrel_rate_last30":       np.nan,
+        "hard_hit_pct_last30":      np.nan,
+        "xba_last30":               np.nan,
+        "avg_exit_velo_last30":     np.nan,
+        "sweet_spot_pct_last30":    np.nan,
+        "pa_per_game_last14":       np.nan,
+        "h_per_pa_vs_hand_last60":  np.nan,
+        "opp_k_pct":               np.nan,
+        "opp_hard_hit_pct_allowed": np.nan,
+        "opp_xba_allowed":          np.nan,
+        "park_factor": float(_PARK_FACTORS.get(home_team_abbr, 1.0)),
+        "is_home":     float(int(is_home)),
+    }
+
+
 def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
     """
     Build a live batter slate compatible with _run_hitting_slate() in app.py.
 
-    Home/away context comes directly from the Odds API event (home_team_abbr /
-    away_team_abbr stored alongside each line), so the slate includes batters
-    from any date DK has props posted — today, tomorrow, or upcoming doubleheaders.
-    No matchup_map filtering: if DK has the prop listed, we include the batter.
+    Primary source: MLB confirmed batting lineups (all 9 batters per team).
+    Secondary overlay: Odds API DK hit lines matched by MLBAM ID.
+    Batters without a DK line are included with has_line=False.
+
+    Falls back to Odds API-only (original behavior) when lineups are not yet
+    submitted (early morning before posting, typically 1-2h before first pitch).
     """
     if game_date is None:
         game_date = date.today().isoformat()
 
-    # Step 1 — DraftKings lines (includes event home/away team abbrs)
+    # Step 1 — Odds API lines, keyed by lowercased player name
     lines = _get_batter_hit_lines()
-    if not lines:
-        print("[hitting_pipeline] No batter hit lines available — returning empty slate.")
-        return []
-    print(f"[hitting_pipeline] {len(lines)} DK hit lines. Loading Statcast (~90 days)...")
+    print(f"[hitting_pipeline] {len(lines)} DK hit lines fetched.")
 
-    # Step 2 — Statcast (needed for rolling features; proceed even if empty)
+    # Step 2 — Resolve Odds API names to MLBAM IDs → {mlbam_id: line_info}
+    lines_by_id: dict[int, dict] = {}
+    for name_lower, line_info in lines.items():
+        entry = _resolve_player_id(name_lower)
+        if entry:
+            mid = entry["mlbam_id"]
+            if mid not in lines_by_id:
+                lines_by_id[mid] = line_info
+
+    # Step 3 — Try MLB confirmed lineups as primary slate source
+    try:
+        from backend.app.data.mlb_api import get_todays_lineup_batters
+    except ImportError:
+        from app.data.mlb_api import get_todays_lineup_batters
+
+    lineup_batters = get_todays_lineup_batters(game_date)
+    print(f"[hitting_pipeline] {len(lineup_batters)} confirmed lineup batters from MLB API.")
+
+    use_lineup = bool(lineup_batters)
+    if not use_lineup and not lines:
+        print("[hitting_pipeline] No lineup batters and no DK lines — returning empty slate.")
+        return []
+
+    # Step 4 — Load Statcast rolling features
+    print("[hitting_pipeline] Loading Statcast (~90 days)...")
     t0 = time.time()
     sc = _load_recent_statcast(days=95)
     print(f"[hitting_pipeline] {len(sc):,} pitches loaded in {time.time()-t0:.1f}s.")
@@ -529,90 +579,121 @@ def build_live_hitting_slate(game_date: Optional[str] = None) -> list[dict]:
     else:
         batter_index = {}
 
-    # Step 3 — Build slate rows
     slate: list[dict] = []
-    skipped = 0
 
-    for name_lower, line_info in lines.items():
-        # Resolve MLBAM ID
-        player_entry = _resolve_player_id(name_lower)
-        if player_entry is None:
-            skipped += 1
-            continue
-        mlbam_id = player_entry["mlbam_id"]
+    if use_lineup:
+        # ── Lineup-primary mode ────────────────────────────────────────────
+        seen_ids: set[int] = set()
+        no_line_count = 0
 
-        # Determine home/away from event team data (no matchup_map needed)
-        home_abbr = line_info.get("home_team_abbr", "")
-        away_abbr = line_info.get("away_team_abbr", "")
+        for batter in lineup_batters:
+            mlbam_id = batter["mlbam_id"]
+            if mlbam_id in seen_ids:
+                continue
+            seen_ids.add(mlbam_id)
 
-        # Get batter's team; try cache first then MLB Stats API
-        team_abbr = player_entry.get("team", "")
-        if not team_abbr:
-            team_abbr = _get_current_team(mlbam_id)
-            player_entry["team"] = team_abbr
-            if name_lower in _player_id_cache:
-                _player_id_cache[name_lower]["team"] = team_abbr
+            home_team_abbr = batter["home_team_abbr"]
+            is_home        = batter["is_home"]
+            team_abbr      = batter["team_abbr"]
+            opponent_abbr  = batter["opponent_abbr"]
+            display_name   = batter["full_name"]
 
-        # Derive is_home and opponent from event context
-        if team_abbr and home_abbr and team_abbr == home_abbr:
-            is_home       = True
-            opponent_abbr = away_abbr or "???"
-            home_team_abbr = home_abbr
-        elif team_abbr and away_abbr and team_abbr == away_abbr:
-            is_home       = False
-            opponent_abbr = home_abbr or "???"
-            home_team_abbr = home_abbr
-        else:
-            # Unknown team or abbreviation mismatch — include with neutral defaults
-            is_home        = True
-            opponent_abbr  = away_abbr or "???"
-            home_team_abbr = home_abbr or team_abbr or ""
+            line_info = lines_by_id.get(mlbam_id)
+            has_line  = line_info is not None
+            if not has_line:
+                no_line_count += 1
 
-        # Compute features from Statcast history
-        batter_history = batter_index.get(mlbam_id)
-        if batter_history is None or batter_history.empty:
-            feats = {
-                "h_per_pa_last7":           np.nan,
-                "h_per_pa_last14":          np.nan,
-                "h_per_pa_last30":          np.nan,
-                "h_per_pa_season":          np.nan,
-                "barrel_rate_last30":       np.nan,
-                "hard_hit_pct_last30":      np.nan,
-                "xba_last30":               np.nan,
-                "avg_exit_velo_last30":     np.nan,
-                "sweet_spot_pct_last30":    np.nan,
-                "pa_per_game_last14":       np.nan,
-                "h_per_pa_vs_hand_last60":  np.nan,
-                "opp_k_pct":               np.nan,
-                "opp_hard_hit_pct_allowed": np.nan,
-                "opp_xba_allowed":          np.nan,
-                "park_factor": float(_PARK_FACTORS.get(home_team_abbr, 1.0)),
-                "is_home":     float(int(is_home)),
-            }
-        else:
-            feats = _compute_batter_features(
-                batter_id      = mlbam_id,
-                batter_history = batter_history,
-                pitcher_hand   = None,
-                is_home        = is_home,
-                home_team_abbr = home_team_abbr,
-            )
+            batter_history = batter_index.get(mlbam_id)
+            if batter_history is None or batter_history.empty:
+                feats = _nan_feats(home_team_abbr, is_home)
+            else:
+                feats = _compute_batter_features(
+                    batter_id      = mlbam_id,
+                    batter_history = batter_history,
+                    pitcher_hand   = None,
+                    is_home        = is_home,
+                    home_team_abbr = home_team_abbr,
+                )
 
-        display_name = " ".join(w.capitalize() for w in name_lower.split())
-        slate.append({
-            "batter_name":   display_name,
-            "mlbam_id":      mlbam_id,
-            "team":          team_abbr or "???",
-            "opponent_abbr": opponent_abbr,
-            "is_home":       is_home,
-            "line":          line_info["line"],
-            "over_odds":     line_info["over_odds"],
-            "under_odds":    line_info["under_odds"],
-            "features":      feats,
-        })
+            slate.append({
+                "batter_name":   display_name,
+                "mlbam_id":      mlbam_id,
+                "team":          team_abbr or "???",
+                "opponent_abbr": opponent_abbr,
+                "is_home":       is_home,
+                "has_line":      has_line,
+                "line":          line_info["line"]       if has_line else 1.5,
+                "over_odds":     line_info["over_odds"]  if has_line else -115,
+                "under_odds":    line_info["under_odds"] if has_line else -115,
+                "features":      feats,
+            })
 
-    print(
-        f"[hitting_pipeline] Slate: {len(slate)} batters "
-        f"({skipped} skipped — MLBAM ID not found)."
-    )
+        print(
+            f"[hitting_pipeline] Slate: {len(slate)} batters "
+            f"({len(lines_by_id)} with DK lines, {no_line_count} no-line)."
+        )
+
+    else:
+        # ── Odds API-only fallback (no confirmed lineups yet) ──────────────
+        skipped = 0
+        for name_lower, line_info in lines.items():
+            player_entry = _resolve_player_id(name_lower)
+            if player_entry is None:
+                skipped += 1
+                continue
+            mlbam_id = player_entry["mlbam_id"]
+
+            home_abbr = line_info.get("home_team_abbr", "")
+            away_abbr = line_info.get("away_team_abbr", "")
+            team_abbr = player_entry.get("team", "")
+            if not team_abbr:
+                team_abbr = _get_current_team(mlbam_id)
+                player_entry["team"] = team_abbr
+                if name_lower in _player_id_cache:
+                    _player_id_cache[name_lower]["team"] = team_abbr
+
+            if team_abbr and home_abbr and team_abbr == home_abbr:
+                is_home        = True
+                opponent_abbr  = away_abbr or "???"
+                home_team_abbr = home_abbr
+            elif team_abbr and away_abbr and team_abbr == away_abbr:
+                is_home        = False
+                opponent_abbr  = home_abbr or "???"
+                home_team_abbr = home_abbr
+            else:
+                is_home        = True
+                opponent_abbr  = away_abbr or "???"
+                home_team_abbr = home_abbr or team_abbr or ""
+
+            batter_history = batter_index.get(mlbam_id)
+            if batter_history is None or batter_history.empty:
+                feats = _nan_feats(home_team_abbr, is_home)
+            else:
+                feats = _compute_batter_features(
+                    batter_id      = mlbam_id,
+                    batter_history = batter_history,
+                    pitcher_hand   = None,
+                    is_home        = is_home,
+                    home_team_abbr = home_team_abbr,
+                )
+
+            display_name = " ".join(w.capitalize() for w in name_lower.split())
+            slate.append({
+                "batter_name":   display_name,
+                "mlbam_id":      mlbam_id,
+                "team":          team_abbr or "???",
+                "opponent_abbr": opponent_abbr,
+                "is_home":       is_home,
+                "has_line":      True,
+                "line":          line_info["line"],
+                "over_odds":     line_info["over_odds"],
+                "under_odds":    line_info["under_odds"],
+                "features":      feats,
+            })
+
+        print(
+            f"[hitting_pipeline] Slate: {len(slate)} batters "
+            f"({skipped} skipped — MLBAM ID not found)."
+        )
+
     return slate
