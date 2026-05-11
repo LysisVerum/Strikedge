@@ -543,8 +543,12 @@ def _run_hitting_slate(slate: list[dict]) -> tuple[list, list]:
             )
 
             # Force PASS for batters without a real DK line — model has no real implied prob
+            # Also force PASS for Under on 0.5-line: DK only offers "1+" (at-least-1-hit)
+            # as an Over-side bet; the Under (zero hits) is not a standard available market
             recommendation = "PASS" if not has_line else pred.recommendation
-            edge_pct       = pred.edge_pct if has_line else 0.0
+            if recommendation == "UNDER" and line <= 0.5:
+                recommendation = "PASS"
+            edge_pct = pred.edge_pct if (has_line and recommendation != "PASS") else 0.0
 
             if recommendation == "OVER":
                 model_prob_win = pred.model_prob_over
@@ -557,7 +561,12 @@ def _run_hitting_slate(slate: list[dict]) -> tuple[list, list]:
                 bet_odds       = over_odds
 
             recommended_bet = _kelly_bet(model_prob_win, bet_odds) if has_line else 0
-            side = "Under" if recommendation == "UNDER" else "Over"
+            # Use DK-style display: "1+ H", "2+ H" for Over; "Under 2 H" for Under
+            line_val = pred.line
+            if recommendation == "UNDER":
+                side = f"Under {int(line_val + 0.5)} H"
+            else:
+                side = f"{int(line_val + 0.5)}+ H"
 
             picks.append({
                 "rank":              0,
@@ -568,7 +577,7 @@ def _run_hitting_slate(slate: list[dict]) -> tuple[list, list]:
                 "matchup":           pred.matchup,
                 "team":              batter.get("team", ""),
                 "opponent":          batter.get("opponent_abbr", ""),
-                "bet":               f"{side} {pred.line} H",
+                "bet":               side,
                 "predicted_hits":    pred.predicted_hits,
                 "line":              pred.line,
                 "line_source":       batter.get("book", "DraftKings") if has_line else "model",
