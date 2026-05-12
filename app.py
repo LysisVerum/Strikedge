@@ -417,7 +417,9 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
                 line       = odds_entry["line"]
                 over_odds  = odds_entry["over_odds"]
                 under_odds = odds_entry.get("under_odds", -over_odds)
-                line_src   = odds_entry["book"]
+                over_book  = odds_entry.get("over_book",  odds_entry["book"])
+                under_book = odds_entry.get("under_book", odds_entry["book"])
+                books_chk  = odds_entry.get("books_checked", 1)
                 has_live   = True
             else:
                 _preview   = strikeout_model.predict(features, line=5.5, pitcher_name=name, matchup=matchup)
@@ -425,7 +427,9 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
                 line       = max(3.5, min(line, 12.5))
                 over_odds  = -115
                 under_odds = -115
-                line_src   = "model"
+                over_book  = "model"
+                under_book = "model"
+                books_chk  = 0
                 has_live   = False
 
             pred = strikeout_model.predict(
@@ -442,12 +446,15 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
             if pred.recommendation == "OVER":
                 model_prob_win = pred.model_prob_over
                 bet_odds       = over_odds
+                line_src       = over_book
             elif pred.recommendation == "UNDER":
                 model_prob_win = 1 - pred.model_prob_over
                 bet_odds       = under_odds
+                line_src       = under_book
             else:
                 model_prob_win = 0.0
                 bet_odds       = over_odds
+                line_src       = over_book
             recommended_bet = _kelly_bet(model_prob_win, bet_odds)
 
             picks.append({
@@ -461,6 +468,9 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
                 "predicted_ks":      pred.predicted_ks,
                 "line":              pred.line,
                 "line_source":       line_src,
+                "over_book":         over_book,
+                "under_book":        under_book,
+                "books_checked":     books_chk,
                 "over_odds":         over_odds,
                 "under_odds":        under_odds,
                 "bet_odds":          bet_odds,

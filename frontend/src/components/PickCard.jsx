@@ -223,8 +223,13 @@ export default function PickCard({ pick, index }) {
             &nbsp;·&nbsp;{pick.matchup}
           </div>
           {pick.live_line ? (
-            <div style={{ marginBottom: '0.4rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
               <BookLink book={pick.line_source} />
+              {(pick.books_checked ?? 0) > 1 && (
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  best of {pick.books_checked}
+                </span>
+              )}
             </div>
           ) : (
             <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>

@@ -92,7 +92,8 @@ def _disk_cache_path() -> Path:
 
 
 def _load_disk_cache() -> dict | None:
-    """Return cached lines if they exist and are less than _DISK_TTL seconds old."""
+    """Return cached lines if they exist, are less than _DISK_TTL seconds old,
+    and use the current format (has over_book/under_book for line shopping)."""
     path = _disk_cache_path()
     if not path.exists():
         return None
@@ -100,8 +101,13 @@ def _load_disk_cache() -> dict | None:
         payload = json.loads(path.read_text(encoding="utf-8"))
         age = time.time() - payload.get("ts", 0)
         if age < _DISK_TTL:
+            lines = payload["lines"]
+            sample = next(iter(lines.values()), {}) if lines else {}
+            if lines and "over_book" not in sample:
+                print("  [odds-api] disk cache outdated format — forcing refresh")
+                return None
             print(f"  [odds-api] disk cache hit ({int(age)}s old) — skipping API calls")
-            return payload["lines"]
+            return lines
     except Exception:
         pass
     return None
@@ -129,19 +135,29 @@ def _save_disk_cache(lines: dict):
 
 def _parse_events(events: list) -> dict[str, dict]:
     """
-    Parse event odds objects into {pitcher_name_lower: {line, over_odds, under_odds, book}}.
-    Uses PREFERRED_BOOKS ordering so we consistently pull from the same book per pitcher.
+    Collect all books' odds per player, then return the best over AND best under
+    independently (line shopping).
+
+    Result shape per player:
+        {line, over_odds, over_book, under_odds, under_book, book, books_checked}
+
+    "Best" is determined at the same consensus line (primary book's line) to keep
+    the comparison apples-to-apples. Cross-line shopping requires model evaluation
+    and is deferred to a future iteration.
     """
-    result: dict[str, dict] = {}
+    # Pass 1 — gather every book's complete offer per player
+    all_offers: dict[str, list[dict]] = {}
+
     for event in events:
         bookmakers = event.get("bookmakers", [])
-        # Sort by preferred book order; unknown books go last
+
         def _book_rank(bm):
             title = bm.get("title", "")
             try:
                 return PREFERRED_BOOKS.index(title)
             except ValueError:
                 return len(PREFERRED_BOOKS)
+
         bookmakers = sorted(bookmakers, key=_book_rank)
 
         for bookmaker in bookmakers:
@@ -149,30 +165,48 @@ def _parse_events(events: list) -> dict[str, dict]:
             for market in bookmaker.get("markets", []):
                 if market.get("key") != MARKET:
                     continue
-                outcomes = market.get("outcomes", [])
-                for outcome in outcomes:
+
+                this_book: dict[str, dict] = {}
+                for outcome in market.get("outcomes", []):
                     name  = (outcome.get("description") or outcome.get("name") or "").strip()
                     point = outcome.get("point")
                     price = outcome.get("price")
                     label = (outcome.get("name") or "").lower()
-                    if not name or point is None or "over" not in label:
+                    if not name or point is None or price is None:
                         continue
                     key = name.lower()
-                    if key not in result:
-                        result[key] = {
-                            "line":       float(point),
-                            "over_odds":  int(price) if price is not None else -115,
-                            "under_odds": -115,
-                            "book":       book,
-                        }
-                # second pass: fill under_odds for the same book we already recorded
-                for outcome in outcomes:
-                    name  = (outcome.get("description") or outcome.get("name") or "").strip()
-                    price = outcome.get("price")
-                    label = (outcome.get("name") or "").lower()
-                    key   = name.lower()
-                    if key in result and result[key]["book"] == book and "under" in label and price is not None:
-                        result[key]["under_odds"] = int(price)
+                    if key not in this_book:
+                        this_book[key] = {"book": book, "line": float(point),
+                                          "over_odds": None, "under_odds": None}
+                    if "over" in label:
+                        this_book[key]["over_odds"] = int(price)
+                        this_book[key]["line"]      = float(point)
+                    elif "under" in label:
+                        this_book[key]["under_odds"] = int(price)
+
+                for key, offer in this_book.items():
+                    if offer["over_odds"] is None:
+                        continue
+                    if offer["under_odds"] is None:
+                        offer["under_odds"] = -115
+                    all_offers.setdefault(key, []).append(offer)
+
+    # Pass 2 — pick best over and best under per player at the consensus line
+    result: dict[str, dict] = {}
+    for key, offers in all_offers.items():
+        primary    = offers[0]                                          # highest-priority book
+        same_line  = [o for o in offers if o["line"] == primary["line"]]
+        best_over  = max(same_line, key=lambda o: o["over_odds"])
+        best_under = max(same_line, key=lambda o: o["under_odds"])
+        result[key] = {
+            "line":          primary["line"],
+            "over_odds":     best_over["over_odds"],
+            "over_book":     best_over["book"],
+            "under_odds":    best_under["under_odds"],
+            "under_book":    best_under["book"],
+            "book":          primary["book"],
+            "books_checked": len(offers),
+        }
     return result
 
 

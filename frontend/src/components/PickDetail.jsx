@@ -117,6 +117,25 @@ export default function PickDetail({ pick }) {
                 <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Edge</span>
                 <span style={{ fontWeight: 800, color: edgeColor }}>{pick.edge_pct_display}</span>
               </div>
+              {(pick.books_checked ?? 0) > 1 && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                  <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                    Best lines ({pick.books_checked} books checked)
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: 3 }}>
+                    <span style={{ color: 'var(--accent-green)' }}>
+                      Over {pick.over_odds > 0 ? '+' : ''}{pick.over_odds}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{pick.over_book}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                    <span style={{ color: 'var(--accent-red)' }}>
+                      Under {pick.under_odds > 0 ? '+' : ''}{pick.under_odds}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{pick.under_book}</span>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
