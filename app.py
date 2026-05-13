@@ -77,7 +77,15 @@ load_dotenv(Path(__file__).parent / "backend" / ".env")
 # The volume at /app/backend/artifacts starts empty and overrides the files
 # copied by the Dockerfile. Seed from backend/artifacts_seed/ if missing.
 # ---------------------------------------------------------------------------
+_SEED_ALWAYS_OVERWRITE = {
+    "hitting_backtest_summary.json",
+    "backtest_summary.json",
+    "hitting_model.pkl",
+    "strikeout_model.pkl",
+}
+
 def _seed_artifacts():
+    import shutil
     seed_dir    = Path(__file__).parent / "backend" / "artifacts_seed"
     target_dir  = Path(__file__).parent / "backend" / "artifacts"
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -85,10 +93,10 @@ def _seed_artifacts():
         return
     for src in seed_dir.iterdir():
         dst = target_dir / src.name
-        if not dst.exists():
-            import shutil
+        if src.name in _SEED_ALWAYS_OVERWRITE or not dst.exists():
             shutil.copy2(src, dst)
-            print(f"[seed] Copied {src.name} -> artifacts/")
+            action = "Refreshed" if dst.exists() and src.name in _SEED_ALWAYS_OVERWRITE else "Copied"
+            print(f"[seed] {action} {src.name} -> artifacts/")
 
 _seed_artifacts()
 

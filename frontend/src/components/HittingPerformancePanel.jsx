@@ -251,61 +251,50 @@ export default function HittingPerformancePanel() {
 
       {view === 'overview' && (
         <>
-          {overall.bets === 0 ? (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-              style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.75rem', opacity: 0.3 }}>📊</div>
-              <p style={{ fontSize: '0.88rem' }}>No settled hit prop bets yet.</p>
-              <p style={{ fontSize: '0.78rem', marginTop: '0.4rem', opacity: 0.75 }}>Results will appear here as picks resolve. Check the Accuracy tab for model backtest metrics.</p>
-            </motion.div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem', marginBottom: '2rem' }}>
-              <StatBox label="Win Rate"   value={overall.winRate ?? '—'}   color="var(--accent-green)" delay={0} />
-              <StatBox label="ROI"        value={roiStr}                    color={roiColor}            delay={0.05} />
-              <StatBox label="P&L"        value={`${(overall.pnl ?? 0) >= 0 ? '+$' : '-$'}${Math.abs(overall.pnl ?? 0).toFixed(0)}`} color={pnlColor} delay={0.1} />
-              <StatBox label="Total Bets" value={overall.bets ?? 0} sub={`${overall.wins ?? 0}W · ${overall.losses ?? 0}L`} delay={0.15} />
-            </div>
-          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem', marginBottom: '2rem' }}>
+            <StatBox label="Win Rate"   value={overall.winRate ?? '—'}   color="var(--accent-green)" delay={0} />
+            <StatBox label="ROI"        value={roiStr}                    color={roiColor}            delay={0.05} />
+            <StatBox label="P&L"        value={`${(overall.pnl ?? 0) >= 0 ? '+$' : '-$'}${Math.abs(overall.pnl ?? 0).toFixed(0)}`} color={pnlColor} delay={0.1} />
+            <StatBox label="Total Bets" value={overall.bets ?? 0} sub={`${overall.wins ?? 0}W · ${overall.losses ?? 0}L · ${overall.pushes ?? 0}P`} delay={0.15} />
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
-            {Object.keys(byTier).length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }}
-                style={{ padding: '1.25rem', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>By Confidence</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                  {Object.entries(byTier).map(([tier, stats]) => {
-                    const c = TIER_COLORS[tier] ?? TIER_COLORS.LOW;
-                    const winPct = stats.wins / Math.max(stats.wins + stats.losses, 1);
-                    return (
-                      <div key={tier}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                            background: c.bg, border: `1px solid ${c.border}`, color: c.text }}>{tier}</span>
-                          <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.78rem' }}>
-                            <span style={{ color: c.text, fontWeight: 700 }}>{stats.winRate}</span>
-                          </div>
-                        </div>
-                        <div style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${winPct * 100}%` }}
-                            transition={{ delay: 0.3, duration: 0.6, ease: 'easeOut' }}
-                            style={{ height: '100%', background: c.text, borderRadius: 2 }} />
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }}
+              style={{ padding: '1.25rem', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>By Confidence</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {Object.entries(byTier).map(([tier, stats]) => {
+                  const c = TIER_COLORS[tier] ?? TIER_COLORS.LOW;
+                  const winPct = stats.wins / Math.max(stats.wins + stats.losses, 1);
+                  return (
+                    <div key={tier}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                          background: c.bg, border: `1px solid ${c.border}`, color: c.text }}>{tier}</span>
+                        <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.78rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{stats.bets} bets</span>
+                          <span style={{ color: c.text, fontWeight: 700 }}>{stats.winRate}</span>
+                          <span style={{ color: (typeof stats.roi === 'string' ? stats.roi : `${stats.roi}`).startsWith('+') ? 'var(--accent-green)' : 'var(--accent-red)', fontWeight: 700 }}>{stats.roi}</span>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
+                      <div style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${winPct * 100}%` }}
+                          transition={{ delay: 0.3, duration: 0.6, ease: 'easeOut' }}
+                          style={{ height: '100%', background: c.text, borderRadius: 2 }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
 
-            {monthly.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.4 }}
-                style={{ padding: '1.25rem', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>Monthly ROI</p>
-                <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'flex-end', justifyContent: 'space-between', overflowX: 'auto' }}>
-                  {monthly.slice(-12).map((m, i) => <MonthBar key={m.month} {...m} maxRoi={maxRoi} index={i} />)}
-                </div>
-              </motion.div>
-            )}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.4 }}
+              style={{ padding: '1.25rem', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>Monthly ROI</p>
+              <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'flex-end', justifyContent: 'space-between', overflowX: 'auto' }}>
+                {monthly.slice(-12).map((m, i) => <MonthBar key={m.month} {...m} maxRoi={maxRoi} index={i} />)}
+              </div>
+            </motion.div>
           </div>
 
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.4 }}
