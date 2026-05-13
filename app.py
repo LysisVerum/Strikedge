@@ -578,7 +578,7 @@ def _run_hitting_slate(slate: list[dict]) -> tuple[list, list]:
             picks.append({
                 "rank":              0,
                 "has_line":          has_line,
-                "live_line":         False,
+                "live_line":         has_line,
                 "mlbam_id":          batter["mlbam_id"],
                 "batter_name":       pred.batter_name,
                 "matchup":           pred.matchup,
@@ -814,7 +814,7 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
             log_hitting_predictions(h_log_entries)
 
         h_actionable = {p["batter_name"] for p in h_picks}
-        h_skipped = [p for p in h_all if p["batter_name"] not in h_actionable]
+        h_skipped = [p for p in h_all if p["batter_name"] not in h_actionable and p.get("live_line")]
         if h_skipped:
             def _h_skip_reason(p):
                 rec, edge = p["recommendation"], abs(p["edge_pct"])
