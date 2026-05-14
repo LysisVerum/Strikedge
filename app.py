@@ -1007,6 +1007,21 @@ def stripe_webhook():
     return jsonify(result)
 
 
+@app.get("/api/stripe/status")
+def stripe_status():
+    """Admin: verify Stripe configuration is complete."""
+    if request.headers.get("X-Admin-Key") != os.environ.get("ADMIN_KEY", ""):
+        abort(403)
+    import stripe as _stripe_lib
+    _stripe_lib.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
+    return jsonify({
+        "secret_key_set":    bool(os.environ.get("STRIPE_SECRET_KEY")),
+        "webhook_secret_set": bool(os.environ.get("STRIPE_WEBHOOK_SECRET")),
+        "price_id":          os.environ.get("STRIPE_PRICE_ID", "(not set — will use file or create)"),
+        "webhook_url":       f"{request.host_url.rstrip('/')}/api/stripe/webhook",
+    })
+
+
 @app.get("/api/health")
 def health():
     return jsonify({
