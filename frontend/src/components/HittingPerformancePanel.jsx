@@ -27,11 +27,7 @@ function StatBox({ label, value, sub, color = 'var(--text-primary)', delay = 0 }
 }
 
 function PnlCurve({ data }) {
-  if (!data || data.length < 2) return (
-    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-      No resolved bets yet — P&L curve will appear as picks settle.
-    </div>
-  );
+  if (!data || data.length < 2) return null;
   const min = Math.min(0, ...data);
   const max = Math.max(0, ...data);
   const range = max - min || 1;
@@ -47,7 +43,9 @@ function PnlCurve({ data }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.5rem' }}>
-        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cumulative P&L</p>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          Cumulative P&L
+        </p>
         <span style={{ fontSize: '0.9rem', fontWeight: 800, color, fontFamily: 'Space Grotesk' }}>
           {final >= 0 ? '+' : ''}${final.toFixed(0)}
         </span>
@@ -92,12 +90,17 @@ function MonthBar({ month, roi, maxRoi, index }) {
   );
 }
 
-function AccuracyView({ data }) {
-  if (!data) return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading...</div>;
+function Accuracy() {
+  const [acc, setAcc] = useState(null);
 
-  const batters = (data.by_batter ?? []).filter(b => b.games >= 10);
+  useEffect(() => { api.hittingAccuracy().then(setAcc).catch(() => {}); }, []);
 
-  // Scatter bounds — season H totals: predicted vs actual
+  if (!acc) return <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading...</div>;
+
+  // Pre-aggregated season totals per batter (from 2025 backtest, 10+ games)
+  const batters = (acc.by_batter ?? []).filter(b => b.games >= 10);
+
+  // Scatter bounds
   const W = 400, H = 220;
   const allTotals = batters.flatMap(b => [b.pred, b.actual]);
   const minV = allTotals.length ? Math.max(0, Math.min(...allTotals) * 0.9) : 0;
@@ -108,13 +111,13 @@ function AccuracyView({ data }) {
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem', marginBottom: '1.5rem' }}>
-        <StatBox label="Season % MAE" value={data.season_pct_mae != null ? `${data.season_pct_mae}%` : '—'}
+        <StatBox label="Season % MAE" value={acc.season_pct_mae != null ? `${acc.season_pct_mae}%` : '—'}
           sub={batters.length ? `${batters.length} batters` : 'need 10+ games'}
           color={ACCENT} delay={0} />
-        <StatBox label="Game MAE" value={data.mae != null ? `${data.mae.toFixed(2)} H` : '—'}
+        <StatBox label="Game MAE" value={acc.mae != null ? `${Number(acc.mae).toFixed(2)} H` : '—'}
           sub="per game" delay={0.05} />
-        <StatBox label="Within 0.5H" value={data.within_half != null ? `${data.within_half}%` : '—'} color="var(--accent-green)" delay={0.1} />
-        <StatBox label="Within 1H"   value={data.within_one  != null ? `${data.within_one}%`  : '—'} color="var(--accent-green)" delay={0.15} />
+        <StatBox label="Within 0.5H" value={acc.within_half != null ? `${acc.within_half}%` : '—'} color="var(--accent-green)" delay={0.1} />
+        <StatBox label="Within 1H"   value={acc.within_one  != null ? `${acc.within_one}%`  : '—'} color="var(--accent-green)" delay={0.15} />
       </div>
 
       {batters.length > 1 && (
@@ -180,9 +183,9 @@ function AccuracyView({ data }) {
         </div>
       )}
 
-      {!data.test_rows && (
+      {batters.length === 0 && (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          No backtest data yet. Run: <code>cd backend && python -m train.backtest_hitting</code>
+          No backtest data yet. Predictions are saved automatically each morning when the slate loads.
         </div>
       )}
     </div>
@@ -190,8 +193,7 @@ function AccuracyView({ data }) {
 }
 
 export default function HittingPerformancePanel() {
-  const [data, setData]       = useState(null);
-  const [accData, setAccData] = useState(null);
+  const [data, setData]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const [view, setView]       = useState('overview');
@@ -203,15 +205,10 @@ export default function HittingPerformancePanel() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (view === 'accuracy') {
-      api.hittingAccuracy().then(setAccData).catch(() => {});
-    }
-  }, [view]);
-
   if (loading) return (
     <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading hitting performance...</div>
   );
+
   if (error) return (
     <div style={{ padding: '1rem 1.25rem', borderRadius: 10, background: ACCENT_BG, border: `1px solid ${ACCENT_BORDER}`, fontSize: '0.85rem', color: ACCENT }}>
       <strong>Performance data unavailable.</strong>
@@ -225,7 +222,6 @@ export default function HittingPerformancePanel() {
   const cumulative_pnl = data?.cumulative_pnl ?? [];
   const bankroll       = data?.bankroll       ?? 1000;
   const kelly_frac     = data?.kelly_frac     ?? 0.25;
-  const accuracy       = data?.model_accuracy ?? {};
 
   const maxRoi   = monthly.length ? Math.max(...monthly.map(m => Math.abs(Number(m.roi) || 0)), 1) : 1;
   const roiStr   = typeof overall.roi === 'string' ? overall.roi : `${(overall.roi ?? 0) >= 0 ? '+' : ''}${(overall.roi ?? 0).toFixed(1)}%`;
@@ -236,7 +232,7 @@ export default function HittingPerformancePanel() {
     <div>
       {/* Tab switcher */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-        {[['overview','Overview'],['accuracy','Accuracy']].map(([v, label]) => (
+        {[['overview', 'Overview'], ['accuracy', 'Accuracy']].map(([v, label]) => (
           <button key={v} onClick={() => setView(v)} style={{
             padding: '6px 16px', borderRadius: 8, fontSize: '0.82rem', fontWeight: 600,
             cursor: 'pointer', border: '1px solid',
@@ -247,13 +243,13 @@ export default function HittingPerformancePanel() {
         ))}
       </div>
 
-      {view === 'accuracy' && <AccuracyView data={accData} />}
+      {view === 'accuracy' && <Accuracy />}
 
       {view === 'overview' && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem', marginBottom: '2rem' }}>
-            <StatBox label="Win Rate"   value={overall.winRate ?? '—'}   color="var(--accent-green)" delay={0} />
-            <StatBox label="ROI"        value={roiStr}                    color={roiColor}            delay={0.05} />
+            <StatBox label="Win Rate"   value={overall.winRate ?? '—'} color="var(--accent-green)" delay={0} />
+            <StatBox label="ROI"        value={roiStr}                 color={roiColor}            delay={0.05} />
             <StatBox label="P&L"        value={`${(overall.pnl ?? 0) >= 0 ? '+$' : '-$'}${Math.abs(overall.pnl ?? 0).toFixed(0)}`} color={pnlColor} delay={0.1} />
             <StatBox label="Total Bets" value={overall.bets ?? 0} sub={`${overall.wins ?? 0}W · ${overall.losses ?? 0}L · ${overall.pushes ?? 0}P`} delay={0.15} />
           </div>
