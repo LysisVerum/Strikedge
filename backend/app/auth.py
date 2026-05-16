@@ -15,6 +15,18 @@ def generate_magic_link(email: str) -> bool:
     """Generate a one-time login token, email it via Resend, return True on success."""
     import resend
 
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("RESEND_API_KEY is not set in environment")
+
+    from_email = os.environ.get("RESEND_FROM_EMAIL", "").strip()
+    if not from_email:
+        raise RuntimeError(
+            "RESEND_FROM_EMAIL is not set. "
+            "Set it to a verified-domain address like noreply@yourdomain.com — "
+            "onboarding@resend.dev only works for your own Resend account email."
+        )
+
     key        = email.lower()
     token      = secrets.token_urlsafe(32)
     expires_at = (datetime.now(timezone.utc) + timedelta(minutes=_TOKEN_TTL_MINUTES)).isoformat()
@@ -27,16 +39,16 @@ def generate_magic_link(email: str) -> bool:
     )
     db.commit()
 
-    app_url    = os.environ.get("APP_URL", "http://localhost:5000")
-    from_email = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
-    link       = f"{app_url}/verify?token={token}"
+    app_url = os.environ.get("APP_URL", "http://localhost:5000")
+    link    = f"{app_url}/verify?token={token}"
 
-    resend.api_key = os.environ["RESEND_API_KEY"]
-    resend.Emails.send({
-        "from":    from_email,
-        "to":      [email],
-        "subject": "Your StrikeEdge sign-in link",
-        "html":    f"""
+    resend.api_key = api_key
+    try:
+        result = resend.Emails.send({
+            "from":    from_email,
+            "to":      [email],
+            "subject": "Your StrikeEdge sign-in link",
+            "html":    f"""
 <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:2rem;background:#0d1117;color:#e6edf3;border-radius:12px">
   <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1.5rem">
     <div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#1d9bf0,#0066cc);display:flex;align-items:center;justify-content:center">
@@ -57,7 +69,11 @@ def generate_magic_link(email: str) -> bool:
   </p>
 </div>
 """,
-    })
+        })
+    except Exception as exc:
+        print(f"[auth] Resend send failed for {email}: {exc}")
+        raise
+    print(f"[auth] Magic link sent to {email} (from={from_email})")
     return True
 
 
