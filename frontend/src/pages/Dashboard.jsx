@@ -147,7 +147,7 @@ export default function Dashboard() {
     setHHistoryLoading(true);
     try {
       const [liveRec, skipped] = await Promise.all([api.hittingLiveRecord(), api.hittingSkipped()]);
-      setHHistoryRecords((liveRec.records || []).filter(r => r.bet > 0));
+      setHHistoryRecords(liveRec.records || []);
       setHSkippedRecords(Array.isArray(skipped) ? skipped : []);
       setHHistoryLoaded(true);
     } catch (e) {
