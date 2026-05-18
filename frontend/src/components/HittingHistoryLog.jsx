@@ -214,7 +214,9 @@ export default function HittingHistoryLog({ records = [], skippedRecords = [], l
                         {row.recommendation ?? '—'}
                       </span>
                     </td>
-                    <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{row.line}</td>
+                    <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                      {row.line != null ? `${Math.ceil(row.line)}+` : '—'}
+                    </td>
                     <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{row.predicted_hits}</td>
                     <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' }}>
                       {row.actual_hits != null ? `${row.actual_hits}H` : <span style={{ color: ACCENT, fontSize: '0.72rem' }}>{isSkipped ? 'pending' : '—'}</span>}
