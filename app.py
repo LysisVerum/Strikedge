@@ -561,27 +561,16 @@ def _run_hitting_slate(slate: list[dict]) -> tuple[list, list]:
             )
 
             # Force PASS for batters without a real DK line — model has no real implied prob
-            # Under-on-0.5 is already blocked inside hitting_model.predict()
             recommendation = "PASS" if not has_line else pred.recommendation
-            edge_pct = pred.edge_pct if (has_line and recommendation != "PASS") else 0.0
+            edge_pct = pred.edge_pct if (has_line and recommendation == "OVER") else 0.0
 
-            if recommendation == "OVER":
-                model_prob_win = pred.model_prob_over
-                bet_odds       = over_odds
-            elif recommendation == "UNDER":
-                model_prob_win = 1 - pred.model_prob_over
-                bet_odds       = under_odds
-            else:
-                model_prob_win = 0.0
-                bet_odds       = over_odds
+            # Books only offer OVER on hit props — always bet OVER side
+            model_prob_win = pred.model_prob_over if recommendation == "OVER" else 0.0
+            bet_odds       = over_odds
 
             recommended_bet = _kelly_bet(model_prob_win, bet_odds) if has_line else 0
-            # Use DK-style display: "1+ H", "2+ H" for Over; "Under 2 H" for Under
             line_val = pred.line
-            if recommendation == "UNDER":
-                side = f"Under {int(line_val + 0.5)} H"
-            else:
-                side = f"{int(line_val + 0.5)}+ H"
+            side = f"{int(line_val + 0.5)}+ H"
 
             picks.append({
                 "rank":              0,

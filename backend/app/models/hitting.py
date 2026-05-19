@@ -3,9 +3,8 @@ Hitting prop prediction model wrapper.
 
 Loads a trained XGBoost regressor and exposes a predict() method that
 returns the model's expected hit total plus a confidence interval.
-Edge is computed by comparing model probability to an asymmetric threshold:
-  OVER:  model_prob_over - implied_prob_over >= 0.15
-  UNDER: model_prob_under - implied_prob_under >= 0.10
+Books only offer the YES/OVER side of hit props (1+ H, 2+ H), so the
+model only recommends OVER or PASS — never UNDER.
 """
 import os
 import json
@@ -173,43 +172,25 @@ class HittingModel:
 
         predicted_hits   = max(0.0, _calibrate(raw_pred))
         model_prob_over  = _poisson_prob_over(predicted_hits, line)
-        model_prob_under = 1 - model_prob_over
+        implied_prob_over = _american_to_implied(over_odds)
 
-        edge_over  = model_prob_over  - _american_to_implied(over_odds)
-        edge_under = model_prob_under - _american_to_implied(under_odds)
-
-        if edge_over >= edge_under:
-            edge_pct          = round(edge_over, 4)
-            implied_prob_over = _american_to_implied(over_odds)
-        else:
-            edge_pct          = round(-edge_under, 4)   # negative = under is the better bet
-            implied_prob_over = _american_to_implied(over_odds)
-
+        edge_pct = round(model_prob_over - implied_prob_over, 4)
         confidence = _confidence_tier(edge_pct)
 
-        # DK's 0.5 line ("1+ H") has no sellable Under side — "0 hits" is not
-        # a standard DK market, so UNDER is never valid when dk_hits_needed == 1.
-        under_available = _dk_hits_needed(line) > 1
-
-        # Asymmetric thresholds: OVER requires 15% edge, UNDER requires 10%
-        if edge_over >= edge_under or not under_available:
-            recommendation = "OVER" if edge_over >= 0.15 else "PASS"
-        elif edge_under >= 0.10:
-            recommendation = "UNDER"
-        else:
-            recommendation = "PASS"
+        # Books only offer YES/OVER on hit props — never recommend UNDER
+        recommendation = "OVER" if edge_pct >= 0.15 else "PASS"
 
         return HittingPrediction(
-            batter_name=batter_name,
-            matchup=matchup,
-            predicted_hits=round(predicted_hits, 2),
-            line=line,
-            model_prob_over=round(model_prob_over, 4),
-            implied_prob_over=round(implied_prob_over, 4),
-            edge_pct=edge_pct,
-            confidence=confidence,
-            recommendation=recommendation,
-            features_used=feature_row.to_dict(),
+            batter_name      = batter_name,
+            matchup          = matchup,
+            predicted_hits   = round(predicted_hits, 2),
+            line             = line,
+            model_prob_over  = round(model_prob_over, 4),
+            implied_prob_over= round(implied_prob_over, 4),
+            edge_pct         = edge_pct,
+            confidence       = confidence,
+            recommendation   = recommendation,
+            features_used    = feature_row.to_dict(),
         )
 
 
