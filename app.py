@@ -2000,6 +2000,20 @@ def delete_hitting_log_line():
     return jsonify({"deleted": deleted})
 
 
+@app.post("/api/admin/clear-hitting-log")
+def admin_clear_hitting_log():
+    """Admin: wipe hitting prediction and skipped logs (e.g. after model changes)."""
+    if request.headers.get("X-Admin-Key") != os.environ.get("ADMIN_KEY", ""):
+        abort(403)
+    from backend.app.data.hitting_log import LOG_PATH, SKIPPED_PATH
+    cleared = []
+    for path in [LOG_PATH, SKIPPED_PATH]:
+        if path.exists():
+            path.write_text("[]")
+            cleared.append(path.name)
+    return jsonify({"cleared": cleared})
+
+
 # ---------------------------------------------------------------------------
 # Serve React frontend
 # ---------------------------------------------------------------------------
