@@ -261,7 +261,7 @@ export default function Hero() {
         }}
       >
         StrikeEdge uses machine learning to surface statistically significant edges
-        in pitcher strikeout and batter hit props. Beat the books with data, not gut feelings.
+        in MLB pitcher strikeout props. Beat the books with data, not gut feelings.
       </motion.p>
 
       {/* CTA Buttons */}
