@@ -422,13 +422,32 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
             # Use live sportsbook line if available, else fall back to model-projected line
             odds_entry = match_line_to_starter(name, live_lines)
             if odds_entry:
-                line       = odds_entry["line"]
-                over_odds  = odds_entry["over_odds"]
-                under_odds = odds_entry.get("under_odds", -over_odds)
-                over_book  = odds_entry.get("over_book",  odds_entry["book"])
-                under_book = odds_entry.get("under_book", odds_entry["book"])
-                books_chk  = odds_entry.get("books_checked", 1)
-                has_live   = True
+                has_live  = True
+                books_chk = odds_entry.get("books_checked", 1)
+
+                # Evaluate model at every available line; pick the one with best edge
+                all_lines = odds_entry.get("all_lines") or [odds_entry]
+                best_pred, best_opt, best_abs_edge = None, None, -1.0
+                for opt in all_lines:
+                    _p = strikeout_model.predict(
+                        feature_row  = features,
+                        line         = opt["line"],
+                        over_odds    = opt["over_odds"],
+                        under_odds   = opt.get("under_odds", -115),
+                        pitcher_name = name,
+                        matchup      = matchup,
+                    )
+                    if abs(_p.edge_pct) > best_abs_edge:
+                        best_abs_edge = abs(_p.edge_pct)
+                        best_pred     = _p
+                        best_opt      = opt
+
+                pred       = best_pred
+                line       = best_opt["line"]
+                over_odds  = best_opt["over_odds"]
+                under_odds = best_opt.get("under_odds", -115)
+                over_book  = best_opt.get("over_book",  best_opt["book"])
+                under_book = best_opt.get("under_book", best_opt["book"])
             else:
                 _preview   = strikeout_model.predict(features, line=5.5, pitcher_name=name, matchup=matchup)
                 line       = round(_preview.predicted_ks * 2 - 0.5) / 2
@@ -439,15 +458,15 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
                 under_book = "model"
                 books_chk  = 0
                 has_live   = False
+                pred = strikeout_model.predict(
+                    feature_row  = features,
+                    line         = line,
+                    over_odds    = over_odds,
+                    under_odds   = under_odds,
+                    pitcher_name = name,
+                    matchup      = matchup,
+                )
 
-            pred = strikeout_model.predict(
-                feature_row  = features,
-                line         = line,
-                over_odds    = over_odds,
-                under_odds   = under_odds,
-                pitcher_name = name,
-                matchup      = matchup,
-            )
             fv   = pred.features_used
             side = "Under" if pred.recommendation == "UNDER" else "Over"
 

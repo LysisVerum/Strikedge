@@ -103,7 +103,7 @@ def _load_disk_cache() -> dict | None:
         if age < _DISK_TTL:
             lines = payload["lines"]
             sample = next(iter(lines.values()), {}) if lines else {}
-            if lines and "over_book" not in sample:
+            if lines and ("over_book" not in sample or "all_lines" not in sample):
                 print("  [odds-api] disk cache outdated format — forcing refresh")
                 return None
             print(f"  [odds-api] disk cache hit ({int(age)}s old) — skipping API calls")
@@ -136,37 +136,34 @@ def _save_disk_cache(lines: dict):
 def _parse_events(events: list) -> dict[str, dict]:
     """
     Collect all books' odds per player, then return the best over AND best under
-    independently (line shopping).
+    independently (line shopping) across every available line.
 
     Result shape per player:
-        {line, over_odds, over_book, under_odds, under_book, book, books_checked}
+        {line, over_odds, over_book, under_odds, under_book, book,
+         books_checked, all_lines: [{line, over_odds, over_book, under_odds, under_book}]}
 
-    "Best" is determined at the same consensus line (primary book's line) to keep
-    the comparison apples-to-apples. Cross-line shopping requires model evaluation
-    and is deferred to a future iteration.
+    all_lines contains every distinct line value available across all books,
+    each with the best available over/under odds at that line. The model
+    evaluates each line and picks the one with the highest edge.
     """
-    # Pass 1 — gather every book's complete offer per player
+    def _book_rank(bm):
+        try:
+            return PREFERRED_BOOKS.index(bm.get("title", ""))
+        except ValueError:
+            return len(PREFERRED_BOOKS)
+
+    # Pass 1 — gather every (book, line, over_odds, under_odds) tuple per player
     all_offers: dict[str, list[dict]] = {}
 
     for event in events:
-        bookmakers = event.get("bookmakers", [])
-
-        def _book_rank(bm):
-            title = bm.get("title", "")
-            try:
-                return PREFERRED_BOOKS.index(title)
-            except ValueError:
-                return len(PREFERRED_BOOKS)
-
-        bookmakers = sorted(bookmakers, key=_book_rank)
-
-        for bookmaker in bookmakers:
+        for bookmaker in sorted(event.get("bookmakers", []), key=_book_rank):
             book = bookmaker.get("title", "")
             for market in bookmaker.get("markets", []):
                 if market.get("key") != MARKET:
                     continue
 
-                this_book: dict[str, dict] = {}
+                # Key: (pitcher_lower, line_val) so multiple lines per pitcher are distinct
+                this_book: dict[tuple, dict] = {}
                 for outcome in market.get("outcomes", []):
                     name  = (outcome.get("description") or outcome.get("name") or "").strip()
                     point = outcome.get("point")
@@ -174,39 +171,56 @@ def _parse_events(events: list) -> dict[str, dict]:
                     label = (outcome.get("name") or "").lower()
                     if not name or point is None or price is None:
                         continue
-                    key = name.lower()
+                    key = (name.lower(), float(point))
                     if key not in this_book:
-                        this_book[key] = {"book": book, "line": float(point),
-                                          "over_odds": None, "under_odds": None}
+                        this_book[key] = {"over_odds": None, "under_odds": None}
                     if "over" in label:
                         this_book[key]["over_odds"] = int(price)
-                        this_book[key]["line"]      = float(point)
                     elif "under" in label:
                         this_book[key]["under_odds"] = int(price)
 
-                for key, offer in this_book.items():
-                    if offer["over_odds"] is None:
+                for (pitcher, line_val), sides in this_book.items():
+                    if sides["over_odds"] is None:
                         continue
-                    if offer["under_odds"] is None:
-                        offer["under_odds"] = -115
-                    all_offers.setdefault(key, []).append(offer)
+                    if sides["under_odds"] is None:
+                        sides["under_odds"] = -115
+                    all_offers.setdefault(pitcher, []).append({
+                        "book":       book,
+                        "line":       line_val,
+                        "over_odds":  sides["over_odds"],
+                        "under_odds": sides["under_odds"],
+                    })
 
-    # Pass 2 — pick best over and best under per player at the consensus line
+    # Pass 2 — group by line value, line-shop within each line, build all_lines list
     result: dict[str, dict] = {}
-    for key, offers in all_offers.items():
-        primary    = offers[0]                                          # highest-priority book
-        same_line  = [o for o in offers if o["line"] == primary["line"]]
-        best_over  = max(same_line, key=lambda o: o["over_odds"])
-        best_under = max(same_line, key=lambda o: o["under_odds"])
-        result[key] = {
-            "line":          primary["line"],
-            "over_odds":     best_over["over_odds"],
-            "over_book":     best_over["book"],
-            "under_odds":    best_under["under_odds"],
-            "under_book":    best_under["book"],
-            "book":          primary["book"],
+    for pitcher, offers in all_offers.items():
+        by_line: dict[float, list[dict]] = {}
+        for o in offers:
+            by_line.setdefault(o["line"], []).append(o)
+
+        line_options = []
+        for line_val, line_offers in sorted(by_line.items()):
+            best_over  = max(line_offers, key=lambda o: o["over_odds"])
+            best_under = max(line_offers, key=lambda o: o["under_odds"])
+            line_options.append({
+                "line":       line_val,
+                "over_odds":  best_over["over_odds"],
+                "over_book":  best_over["book"],
+                "under_odds": best_under["under_odds"],
+                "under_book": best_under["book"],
+                "book":       best_over["book"],
+            })
+
+        # Primary entry uses the highest-priority book's line
+        primary_line = offers[0]["line"]
+        primary_opt  = next((o for o in line_options if o["line"] == primary_line), line_options[0])
+
+        result[pitcher] = {
+            **primary_opt,
             "books_checked": len(offers),
+            "all_lines":     line_options,
         }
+
     return result
 
 
