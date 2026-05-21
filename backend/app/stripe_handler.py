@@ -13,6 +13,14 @@ def _stripe():
     return _s
 
 
+def _attr(obj, key, default=None):
+    """Safe attribute access for Stripe SDK objects (v5+ removed .get())."""
+    try:
+        return getattr(obj, key, default)
+    except Exception:
+        return default
+
+
 def get_or_create_price() -> str:
     """Return the recurring price ID.
 
@@ -21,7 +29,6 @@ def get_or_create_price() -> str:
       2. artifacts/stripe_price_id.txt  (local dev fallback)
       3. Create a new product + price in Stripe (first-time setup only)
     """
-    # Env var is the authoritative source — set it in Railway to survive redeploys
     env_price = os.environ.get("STRIPE_PRICE_ID", "").strip()
     if env_price:
         return env_price
@@ -54,36 +61,35 @@ def create_checkout_session(email: str, success_url: str, cancel_url: str) -> st
     price_id = get_or_create_price()
 
     session = s.checkout.Session.create(
-        payment_method_types = ["card"],
-        mode                 = "subscription",
-        customer_email       = email,
-        line_items           = [{"price": price_id, "quantity": 1}],
-        success_url          = success_url,
-        cancel_url           = cancel_url,
-        metadata             = {"email": email},
+        payment_method_types      = ["card"],
+        mode                      = "subscription",
+        customer_email            = email,
+        line_items                = [{"price": price_id, "quantity": 1}],
+        success_url               = success_url,
+        cancel_url                = cancel_url,
+        metadata                  = {"email": email},
+        payment_method_collection = "if_required",
     )
     return session.url
 
 
 def _email_from_session(sess, s) -> str:
-    """Extract the subscriber email from a checkout.session object.
-
-    Tries customer_email first, then metadata, then looks up the Stripe Customer
-    record — handles cases where Stripe omits customer_email for returning customers.
-    """
-    email = (sess.get("customer_email") or "").strip()
+    """Extract the subscriber email from a checkout.session object."""
+    email = (_attr(sess, "customer_email") or "").strip()
     if email:
         return email
 
-    email = (sess.get("metadata") or {}).get("email", "").strip()
+    metadata = _attr(sess, "metadata")
+    if metadata:
+        email = (_attr(metadata, "email") or "").strip()
     if email:
         return email
 
-    customer_id = sess.get("customer")
+    customer_id = _attr(sess, "customer")
     if customer_id:
         try:
             customer = s.Customer.retrieve(customer_id)
-            email = (customer.get("email") or "").strip()
+            email = (_attr(customer, "email") or "").strip()
         except Exception as exc:
             print(f"[stripe] Could not retrieve customer {customer_id}: {exc}")
 
@@ -113,24 +119,24 @@ def handle_webhook(payload: bytes, sig_header: str) -> dict:
     if etype == "checkout.session.completed":
         sess   = event["data"]["object"]
         email  = _email_from_session(sess, s)
-        sub_id = sess.get("subscription")
+        sub_id = _attr(sess, "subscription")
 
         if not email:
-            print(f"[stripe] checkout.session.completed: could not determine email — session {sess.get('id')}")
+            print(f"[stripe] checkout.session.completed: could not determine email — session {_attr(sess, 'id')}")
             return {"status": "skipped", "reason": "no email"}
 
         if not sub_id:
-            print(f"[stripe] checkout.session.completed: no subscription ID — session {sess.get('id')}")
+            print(f"[stripe] checkout.session.completed: no subscription ID — session {_attr(sess, 'id')}")
             return {"status": "skipped", "reason": "no subscription"}
 
         try:
             sub        = s.Subscription.retrieve(sub_id)
             expires_at = datetime.fromtimestamp(
-                sub["current_period_end"], tz=timezone.utc
+                _attr(sub, "current_period_end"), tz=timezone.utc
             ).isoformat()
             user_store.set_premium(
                 email,
-                stripe_customer_id     = sess.get("customer", ""),
+                stripe_customer_id     = _attr(sess, "customer", ""),
                 stripe_subscription_id = sub_id,
                 expires_at             = expires_at,
             )
@@ -140,23 +146,23 @@ def handle_webhook(payload: bytes, sig_header: str) -> dict:
             return {"error": str(exc)}
 
     elif etype in ("customer.subscription.deleted", "customer.subscription.paused"):
-        sub  = event["data"]["object"]
-        user = user_store.find_by_subscription(sub["id"])
+        sub    = event["data"]["object"]
+        sub_id = _attr(sub, "id")
+        user   = user_store.find_by_subscription(sub_id)
         if user:
             user_store.set_free(user["email"])
-            print(f"[stripe] Downgraded {user['email']} to free (sub {sub['id']} {etype})")
+            print(f"[stripe] Downgraded {user['email']} to free (sub {sub_id} {etype})")
         else:
-            print(f"[stripe] {etype}: no user found for sub {sub['id']}")
+            print(f"[stripe] {etype}: no user found for sub {sub_id}")
 
     elif etype in ("invoice.payment_succeeded", "invoice.paid"):
-        # Handles both the deprecated and current event names
         invoice = event["data"]["object"]
-        sub_id  = invoice.get("subscription")
+        sub_id  = _attr(invoice, "subscription")
         if sub_id:
             try:
                 sub        = s.Subscription.retrieve(sub_id)
                 expires_at = datetime.fromtimestamp(
-                    sub["current_period_end"], tz=timezone.utc
+                    _attr(sub, "current_period_end"), tz=timezone.utc
                 ).isoformat()
                 user_store.renew_premium(sub_id, expires_at)
                 print(f"[stripe] Renewed premium for sub {sub_id}, expires {expires_at}")
@@ -164,15 +170,15 @@ def handle_webhook(payload: bytes, sig_header: str) -> dict:
                 print(f"[stripe] Failed to renew premium for sub {sub_id}: {exc}")
 
     elif etype == "customer.subscription.updated":
-        # Subscription reactivated after pause or plan change
-        sub  = event["data"]["object"]
-        if sub.get("status") == "active":
-            user = user_store.find_by_subscription(sub["id"])
+        sub    = event["data"]["object"]
+        sub_id = _attr(sub, "id")
+        if _attr(sub, "status") == "active":
+            user = user_store.find_by_subscription(sub_id)
             if user:
                 expires_at = datetime.fromtimestamp(
-                    sub["current_period_end"], tz=timezone.utc
+                    _attr(sub, "current_period_end"), tz=timezone.utc
                 ).isoformat()
-                user_store.renew_premium(sub["id"], expires_at)
+                user_store.renew_premium(sub_id, expires_at)
                 print(f"[stripe] Subscription updated for {user['email']}, expires {expires_at}")
 
     return {"status": "handled", "type": etype}
