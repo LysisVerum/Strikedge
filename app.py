@@ -994,7 +994,7 @@ def stripe_checkout():
     email = _current_email()
     if not email:
         abort(401, "Not authenticated")
-    app_url     = request.host_url.rstrip("/")
+    app_url     = os.environ.get("APP_URL", request.host_url).rstrip("/")
     success_url = f"{app_url}/dashboard?upgrade=success"
     cancel_url  = f"{app_url}/dashboard"
     try:
