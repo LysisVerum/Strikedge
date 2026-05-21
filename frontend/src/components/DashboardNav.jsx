@@ -18,7 +18,7 @@ export default function DashboardNav({ user }) {
         borderBottom: '1px solid var(--border)',
       }}
     >
-      <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', textDecoration: 'none' }}>
+      <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', textDecoration: 'none' }}>
         <div style={{
           width: 26, height: 26, borderRadius: 6,
           background: 'linear-gradient(135deg, #1d9bf0, #0066cc)',
