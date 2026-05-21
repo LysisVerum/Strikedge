@@ -1019,8 +1019,8 @@ def stripe_cancel():
     try:
         import stripe as _s
         _s.api_key = os.environ["STRIPE_SECRET_KEY"]
-        sub = _s.Subscription.modify(sub_id, cancel_at_period_end=True)
-        period_end = datetime.fromtimestamp(sub["current_period_end"], tz=timezone.utc).isoformat()
+        sub        = _s.Subscription.modify(sub_id, cancel_at_period_end=True)
+        period_end = stripe_handler._period_end_to_iso(getattr(sub, "current_period_end", None))
         return jsonify({"status": "cancelled", "active_until": period_end})
     except Exception as e:
         print(f"[stripe] cancel error: {e}")
