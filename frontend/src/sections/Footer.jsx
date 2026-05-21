@@ -1,4 +1,12 @@
+import { Link } from 'react-router-dom';
 import { TrendingUp } from 'lucide-react';
+
+const LINKS = [
+  { label: 'Privacy',              to: '/privacy'              },
+  { label: 'Terms',                to: '/terms'                },
+  { label: 'Responsible Gambling', to: '/responsible-gambling' },
+  { label: 'Contact',              to: '/contact'              },
+];
 
 export default function Footer() {
   return (
@@ -26,16 +34,16 @@ export default function Footer() {
           </span>
         </div>
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-          {['Privacy', 'Terms', 'Responsible Gambling', 'Contact'].map(link => (
-            <a
-              key={link}
-              href="#"
+          {LINKS.map(({ label, to }) => (
+            <Link
+              key={label}
+              to={to}
               style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'none' }}
               onMouseEnter={e => e.target.style.color = 'var(--text-secondary)'}
               onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}
             >
-              {link}
-            </a>
+              {label}
+            </Link>
           ))}
         </div>
         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
