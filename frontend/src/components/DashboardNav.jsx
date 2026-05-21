@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
 import { TrendingUp } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function DashboardNav({ user }) {
+  const navigate = useNavigate();
   return (
     <motion.nav
       initial={{ y: -20, opacity: 0 }}
@@ -41,9 +42,11 @@ export default function DashboardNav({ user }) {
           Live
         </div>
         {user && (
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/account')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: 0 }}>
             {user.email}
-          </span>
+          </motion.button>
         )}
         {user?.tier === 'premium' && (
           <span style={{

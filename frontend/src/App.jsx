@@ -1,9 +1,10 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import LandingPage from './pages/LandingPage';
-import Dashboard   from './pages/Dashboard';
-import LoginPage   from './pages/LoginPage';
-import VerifyPage  from './pages/VerifyPage';
+import LandingPage  from './pages/LandingPage';
+import Dashboard    from './pages/Dashboard';
+import LoginPage    from './pages/LoginPage';
+import VerifyPage   from './pages/VerifyPage';
+import AccountPage  from './pages/AccountPage';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
           <Route path="/login"     element={<LoginPage />}   />
           <Route path="/verify"    element={<VerifyPage />}  />
           <Route path="/dashboard" element={<Dashboard />}   />
+          <Route path="/account"   element={<AccountPage />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

@@ -1005,6 +1005,28 @@ def stripe_checkout():
         abort(500, "Could not create checkout session")
 
 
+@app.post("/api/stripe/cancel")
+def stripe_cancel():
+    email = _current_email()
+    if not email:
+        abort(401, "Not authenticated")
+    user = get_user(email)
+    if not user or user.get("tier") != "premium":
+        abort(400, "No active subscription")
+    sub_id = user.get("stripe_subscription_id")
+    if not sub_id:
+        abort(400, "No subscription ID on file")
+    try:
+        import stripe as _s
+        _s.api_key = os.environ["STRIPE_SECRET_KEY"]
+        sub = _s.Subscription.modify(sub_id, cancel_at_period_end=True)
+        period_end = datetime.fromtimestamp(sub["current_period_end"], tz=timezone.utc).isoformat()
+        return jsonify({"status": "cancelled", "active_until": period_end})
+    except Exception as e:
+        print(f"[stripe] cancel error: {e}")
+        abort(500, "Could not cancel subscription")
+
+
 @app.post("/api/stripe/webhook")
 def stripe_webhook():
     payload    = request.get_data()

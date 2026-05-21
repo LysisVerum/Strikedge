@@ -46,5 +46,6 @@ export const api = {
   unlockPick: (pitcher_name) => request('/picks/unlock', { method: 'POST', body: JSON.stringify({ pitcher_name }) }),
 
   // Stripe
-  createCheckout: () => request('/stripe/checkout', { method: 'POST' }),
+  createCheckout:      () => request('/stripe/checkout', { method: 'POST' }),
+  cancelSubscription:  () => request('/stripe/cancel',   { method: 'POST' }),
 };
