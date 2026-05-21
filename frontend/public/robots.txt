@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /account
+Disallow: /upgrade
+Disallow: /verify
+
+Sitemap: https://www.strikedge.ca/sitemap.xml
