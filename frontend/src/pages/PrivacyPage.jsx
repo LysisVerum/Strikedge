@@ -51,7 +51,7 @@ export default function PrivacyPage() {
         </Section>
 
         <Section title="Contact">
-          For privacy-related questions, contact us at <a href="mailto:support@strikedge.app" style={{ color: 'var(--accent-blue)' }}>support@strikedge.app</a>.
+          For privacy-related questions, contact us at <a href="mailto:nich8804@gmail.com" style={{ color: 'var(--accent-blue)' }}>nich8804@gmail.com</a>.
         </Section>
       </div>
     </div>

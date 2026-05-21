@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { TrendingUp, LogOut, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
+import Footer from '../sections/Footer';
 
 export default function AccountPage() {
   const { user, logout } = useAuth();
@@ -149,6 +150,7 @@ export default function AccountPage() {
           )}
         </motion.div>
       </div>
+      <Footer />
     </div>
   );
 }

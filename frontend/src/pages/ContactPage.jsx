@@ -38,10 +38,10 @@ export default function ContactPage() {
             <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Email us</span>
           </div>
           <a
-            href="mailto:support@strikedge.app"
+            href="mailto:nich8804@gmail.com"
             style={{ fontSize: '0.9rem', color: 'var(--accent-blue)', textDecoration: 'none' }}
           >
-            support@strikedge.app
+            nich8804@gmail.com
           </a>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.75rem', lineHeight: 1.6 }}>
             We typically respond within 24 hours. For subscription or billing issues, include the email address on your account.

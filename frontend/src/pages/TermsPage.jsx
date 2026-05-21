@@ -55,7 +55,7 @@ export default function TermsPage() {
         </Section>
 
         <Section title="Contact">
-          Questions about these terms? Email us at <a href="mailto:support@strikedge.app" style={{ color: 'var(--accent-blue)' }}>support@strikedge.app</a>.
+          Questions about these terms? Email us at <a href="mailto:nich8804@gmail.com" style={{ color: 'var(--accent-blue)' }}>nich8804@gmail.com</a>.
         </Section>
       </div>
     </div>

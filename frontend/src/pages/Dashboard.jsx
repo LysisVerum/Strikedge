@@ -9,6 +9,7 @@ import LockedPickCard from '../components/LockedPickCard';
 import PerformancePanel from '../components/PerformancePanel';
 import HistoryLog from '../components/HistoryLog';
 import DashboardNav from '../components/DashboardNav';
+import Footer from '../sections/Footer';
 
 const TABS = [
   { id: 'picks',       label: "Today's Picks", icon: TrendingUp },
@@ -292,6 +293,7 @@ export default function Dashboard() {
               </AnimatePresence>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
