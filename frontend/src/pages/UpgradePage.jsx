@@ -61,7 +61,7 @@ export default function UpgradePage() {
             Upgrade to Premium
           </h1>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>
-            $40 CAD / month · Cancel anytime
+            $30 CAD / month (~$20 USD) · Cancel anytime
           </p>
 
           {/* Disclaimer box */}
