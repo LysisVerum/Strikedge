@@ -927,8 +927,8 @@ def auth_magic_link():
         generate_magic_link(email)
         return jsonify({"status": "sent"})
     except Exception as e:
-        print(f"[auth] magic-link error for {email}: {e}")
-        abort(500, "Could not send login email. Check RESEND_API_KEY and domain setup.")
+        print(f"[auth] magic-link error for {email}: {e}", flush=True)
+        abort(500, f"Resend error: {e}")
 
 
 @app.get("/api/auth/verify")
