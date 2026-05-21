@@ -1,6 +1,6 @@
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 _PRICE_ID_PATH = Path(__file__).parent.parent / "artifacts" / "stripe_price_id.txt"
@@ -29,7 +29,7 @@ def _attr(obj, key, default=None):
 def _period_end_to_iso(period_end) -> str:
     """Convert Stripe current_period_end (int timestamp or datetime) to ISO string."""
     if period_end is None:
-        return (datetime.now(timezone.utc).replace(day=1) + __import__('calendar').timedelta(days=32)).replace(day=1).isoformat()
+        return (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
     if isinstance(period_end, datetime):
         if period_end.tzinfo is None:
             period_end = period_end.replace(tzinfo=timezone.utc)
