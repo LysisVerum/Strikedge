@@ -143,7 +143,7 @@ export default function AccountPage() {
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 onClick={() => api.createCheckout().then(r => { window.location.href = r.url; })}
                 style={{ padding: '0.5rem 1.25rem', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#1d9bf0,#0066cc)', color: '#fff', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>
-                Upgrade to Premium — $25/mo
+                Upgrade to Premium — $40/mo
               </motion.button>
             </div>
           )}

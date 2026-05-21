@@ -5,7 +5,7 @@ from pathlib import Path
 
 _PRICE_ID_PATH = Path(__file__).parent.parent / "artifacts" / "stripe_price_id.txt"
 
-PREMIUM_PRICE_CAD = 2500   # $25.00 CAD in cents
+PREMIUM_PRICE_CAD = 4000   # $40.00 CAD in cents
 
 
 def _stripe():

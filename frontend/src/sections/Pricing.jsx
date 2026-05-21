@@ -19,7 +19,7 @@ const plans = [
   },
   {
     name: 'Pro',
-    price: '$29',
+    price: '$40',
     period: '/month',
     desc: 'Full access to all models and real-time alerts.',
     features: [

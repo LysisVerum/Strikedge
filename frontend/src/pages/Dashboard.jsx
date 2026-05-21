@@ -320,7 +320,7 @@ function PremiumGate({ onUpgrade, upgrading, accent = 'var(--accent-blue)' }) {
         style={{ padding: '0.7rem 1.75rem', borderRadius: 8, border: 'none', background: `linear-gradient(135deg, ${gradStart}, ${gradEnd})`, color: '#fff', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
       >
         <Zap size={16} />
-        {upgrading ? 'Redirecting…' : 'Upgrade — $25 CAD/month'}
+        {upgrading ? 'Redirecting…' : 'Upgrade — $40 CAD/month'}
       </motion.button>
     </motion.div>
   );
