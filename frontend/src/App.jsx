@@ -9,6 +9,7 @@ import PrivacyPage             from './pages/PrivacyPage';
 import TermsPage               from './pages/TermsPage';
 import ResponsibleGamblingPage from './pages/ResponsibleGamblingPage';
 import ContactPage             from './pages/ContactPage';
+import UpgradePage             from './pages/UpgradePage';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/terms"                element={<TermsPage />}               />
           <Route path="/responsible-gambling" element={<ResponsibleGamblingPage />} />
           <Route path="/contact"              element={<ContactPage />}             />
+          <Route path="/upgrade"              element={<UpgradePage />}             />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

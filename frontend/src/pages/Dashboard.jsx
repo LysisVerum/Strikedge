@@ -33,7 +33,6 @@ export default function Dashboard() {
   const [error, setError]               = useState(null);
   const [tab, setTab]                   = useState('picks');
   const [refreshRunning, setRefreshRunning] = useState(false);
-  const [upgrading, setUpgrading]       = useState(false);
   const [historyRecords, setHistoryRecords] = useState([]);
   const [skippedRecords, setSkippedRecords] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -79,16 +78,7 @@ export default function Dashboard() {
     setTokens(newTokenCount);
   };
 
-  const handleUpgrade = async () => {
-    setUpgrading(true);
-    try {
-      const data = await api.createCheckout();
-      window.location.href = data.url;
-    } catch (e) {
-      alert(e.message);
-      setUpgrading(false);
-    }
-  };
+  const handleUpgrade = () => navigate('/upgrade');
 
   const fetchHistoryData = async () => {
     setHistoryLoading(true);
@@ -158,10 +148,10 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                   {!isPremium && (
                     <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-                      onClick={handleUpgrade} disabled={upgrading}
+                      onClick={handleUpgrade}
                       style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.9rem', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #1d9bf0, #0066cc)', color: '#fff', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
                       <Zap size={13} />
-                      {upgrading ? 'Redirecting…' : 'Go Premium'}
+                      Go Premium
                     </motion.button>
                   )}
                   <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={handleRefresh}
@@ -227,7 +217,7 @@ export default function Dashboard() {
                                   {tokensRemaining !== 1 ? 's' : ''} remaining this week
                                   {tokensResetAt && <span style={{ color: 'var(--text-muted)', marginLeft: '0.4rem' }}>· resets {new Date(tokensResetAt).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' })}</span>}
                                 </span>
-                                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} onClick={handleUpgrade} disabled={upgrading}
+                                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} onClick={handleUpgrade}
                                   style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', borderRadius: 6, border: 'none', background: 'linear-gradient(135deg, #1d9bf0, #0066cc)', color: '#fff', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
                                   <Zap size={11} /> Upgrade
                                 </motion.button>
@@ -276,7 +266,7 @@ export default function Dashboard() {
                     </>
                   )}
                   {(tab === 'performance' || tab === 'history') && !isPremium
-                    ? <PremiumGate onUpgrade={handleUpgrade} upgrading={upgrading} />
+                    ? <PremiumGate onUpgrade={handleUpgrade} />
                     : <>
                         {tab === 'performance' && <PerformancePanel />}
                         {tab === 'history' && (
@@ -298,7 +288,7 @@ export default function Dashboard() {
   );
 }
 
-function PremiumGate({ onUpgrade, upgrading, accent = 'var(--accent-blue)' }) {
+function PremiumGate({ onUpgrade, accent = 'var(--accent-blue)' }) {
   const bgColor = accent === 'var(--accent-blue)' ? 'rgba(29,155,240,0.1)' : 'rgba(249,115,22,0.1)';
   const gradStart = accent === 'var(--accent-blue)' ? '#1d9bf0' : '#f97316';
   const gradEnd   = accent === 'var(--accent-blue)' ? '#0066cc' : '#c2410c';
@@ -318,11 +308,10 @@ function PremiumGate({ onUpgrade, upgrading, accent = 'var(--accent-blue)' }) {
       <motion.button
         whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
         onClick={onUpgrade}
-        disabled={upgrading}
         style={{ padding: '0.7rem 1.75rem', borderRadius: 8, border: 'none', background: `linear-gradient(135deg, ${gradStart}, ${gradEnd})`, color: '#fff', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
       >
         <Zap size={16} />
-        {upgrading ? 'Redirecting…' : 'Upgrade — $40 CAD/month'}
+        Upgrade — $40 CAD/month
       </motion.button>
     </motion.div>
   );

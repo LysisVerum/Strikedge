@@ -25,29 +25,29 @@ const BOOK_URLS = {
 const BOOK_LABELS = {}; // use the book name as-is from the API
 
 function BookLink({ book, style = {} }) {
-  const url   = BOOK_URLS[book];
-  const label = book;
-  if (!url) return null;
+  if (!book) return null;
+  const url = BOOK_URLS[book];
+  const chipStyle = {
+    display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+    fontSize: '0.7rem', color: 'var(--accent-blue)',
+    textDecoration: 'none', fontWeight: 600,
+    padding: '2px 8px', borderRadius: 6,
+    border: '1px solid rgba(29,155,240,0.25)',
+    background: 'rgba(29,155,240,0.07)',
+    ...style,
+  };
+  if (!url) return <span style={chipStyle}>{book}</span>;
   return (
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-        fontSize: '0.7rem', color: 'var(--accent-blue)',
-        textDecoration: 'none', fontWeight: 600,
-        padding: '2px 8px', borderRadius: 6,
-        border: '1px solid rgba(29,155,240,0.25)',
-        background: 'rgba(29,155,240,0.07)',
-        transition: 'background 0.15s',
-        ...style,
-      }}
+      style={{ ...chipStyle, transition: 'background 0.15s' }}
       onMouseEnter={e => e.currentTarget.style.background = 'rgba(29,155,240,0.15)'}
       onMouseLeave={e => e.currentTarget.style.background = 'rgba(29,155,240,0.07)'}
     >
-      {label} <ExternalLink size={10} />
+      {book} <ExternalLink size={10} />
     </a>
   );
 }

@@ -19,19 +19,21 @@ const BOOK_URLS = {
 };
 
 function BookLink({ book }) {
+  if (!book) return null;
   const url = BOOK_URLS[book];
-  if (!book || !url) return null;
+  const chipStyle = {
+    fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+    background: 'rgba(29,155,240,0.08)', border: '1px solid rgba(29,155,240,0.25)',
+    color: 'var(--accent-blue)', textDecoration: 'none', display: 'inline-block',
+  };
+  if (!url) return <span style={chipStyle}>{book}</span>;
   return (
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
-      style={{
-        fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-        background: 'rgba(29,155,240,0.08)', border: '1px solid rgba(29,155,240,0.25)',
-        color: 'var(--accent-blue)', textDecoration: 'none', display: 'inline-block',
-      }}
+      style={chipStyle}
     >
       {book}
     </a>
