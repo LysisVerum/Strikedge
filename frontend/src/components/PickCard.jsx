@@ -4,36 +4,43 @@ import { ChevronDown, ExternalLink } from 'lucide-react';
 import PickDetail from './PickDetail';
 import PitcherCard from './PitcherCard';
 
-// PropOdds returns display names like "DraftKings", "FanDuel" — keyed both ways
 const BOOK_URLS = {
-  'draftkings':   'https://sportsbook.draftkings.com/leagues/baseball/mlb',
-  'DraftKings':   'https://sportsbook.draftkings.com/leagues/baseball/mlb',
-  'fanduel':      'https://sportsbook.fanduel.com/baseball/mlb',
-  'FanDuel':      'https://sportsbook.fanduel.com/baseball/mlb',
-  'betmgm':       'https://sports.betmgm.com/en/sports/baseball-23',
-  'BetMGM':       'https://sports.betmgm.com/en/sports/baseball-23',
-  'caesars':      'https://sportsbook.caesars.com/us/va/baseball/mlb',
-  'Caesars':      'https://sportsbook.caesars.com/us/va/baseball/mlb',
-  'pointsbet':    'https://pointsbet.com/sports/baseball/MLB',
-  'PointsBet':    'https://pointsbet.com/sports/baseball/MLB',
-  'betrivers':    'https://pa.betrivers.com/?page=sportsbook#baseball/mlb',
-  'BetRivers':    'https://pa.betrivers.com/?page=sportsbook#baseball/mlb',
-  'bovada':       'https://www.bovada.lv/sports/baseball/mlb',
-  'Bovada':       'https://www.bovada.lv/sports/baseball/mlb',
+  'DraftKings':    'https://sportsbook.draftkings.com/leagues/baseball/mlb',
+  'FanDuel':       'https://sportsbook.fanduel.com/baseball/mlb',
+  'BetMGM':        'https://sports.betmgm.com/en/sports/baseball-23',
+  'Caesars':       'https://sportsbook.caesars.com/us/va/baseball/mlb',
+  'PointsBet':     'https://pointsbet.com/sports/baseball/MLB',
+  'BetRivers':     'https://pa.betrivers.com/?page=sportsbook#baseball/mlb',
+  'Fanatics':      'https://sportsbook.fanaticssportsbook.com/sports/baseball/mlb',
+  'ESPN BET':      'https://espnbet.com/sport/baseball/organization/us',
+  'Hard Rock Bet': 'https://hardrock.bet/sports/baseball',
+  'Unibet':        'https://www.unibet.com/betting/sports/filter/baseball/usa/mlb/all/matches',
+  'BetOnline.ag':  'https://www.betonline.ag/sportsbook/baseball/mlb',
+  'Bovada':        'https://www.bovada.lv/sports/baseball/mlb',
+  'MyBookie.ag':   'https://mybookie.ag/sportsbook/baseball/',
+  'LowVig.ag':     'https://www.lowvig.ag/sportsbook/baseball/mlb',
 };
 
-const BOOK_LABELS = {}; // use the book name as-is from the API
+// Books considered part of the regulated US/CA market — anything else is offshore
+const MAINSTREAM_BOOKS = new Set([
+  'DraftKings', 'FanDuel', 'BetMGM', 'Caesars', 'PointsBet',
+  'BetRivers', 'Fanatics', 'ESPN BET', 'Hard Rock Bet', 'Unibet',
+]);
 
-function BookLink({ book, style = {} }) {
+function BookLink({ book, offshore = false, style = {} }) {
   if (!book) return null;
   const url = BOOK_URLS[book];
+  const color  = offshore ? '#f59e0b' : 'var(--accent-blue)';
+  const border = offshore ? 'rgba(245,158,11,0.3)' : 'rgba(29,155,240,0.25)';
+  const bg     = offshore ? 'rgba(245,158,11,0.07)' : 'rgba(29,155,240,0.07)';
+  const bgHov  = offshore ? 'rgba(245,158,11,0.15)' : 'rgba(29,155,240,0.15)';
   const chipStyle = {
     display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-    fontSize: '0.7rem', color: 'var(--accent-blue)',
+    fontSize: '0.7rem', color,
     textDecoration: 'none', fontWeight: 600,
     padding: '2px 8px', borderRadius: 6,
-    border: '1px solid rgba(29,155,240,0.25)',
-    background: 'rgba(29,155,240,0.07)',
+    border: `1px solid ${border}`,
+    background: bg,
     ...style,
   };
   if (!url) return <span style={chipStyle}>{book}</span>;
@@ -44,8 +51,8 @@ function BookLink({ book, style = {} }) {
       rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
       style={{ ...chipStyle, transition: 'background 0.15s' }}
-      onMouseEnter={e => e.currentTarget.style.background = 'rgba(29,155,240,0.15)'}
-      onMouseLeave={e => e.currentTarget.style.background = 'rgba(29,155,240,0.07)'}
+      onMouseEnter={e => e.currentTarget.style.background = bgHov}
+      onMouseLeave={e => e.currentTarget.style.background = bg}
     >
       {book} <ExternalLink size={10} />
     </a>
@@ -222,16 +229,24 @@ export default function PickCard({ pick, index }) {
             ) : null}
             &nbsp;·&nbsp;{pick.matchup}
           </div>
-          {pick.live_line ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
-              <BookLink book={pick.line_source} />
-              {(pick.books_checked ?? 0) > 1 && (
-                <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  best of {pick.books_checked}
-                </span>
-              )}
-            </div>
-          ) : (
+          {pick.live_line ? (() => {
+            const isOffshore = pick.line_source && !MAINSTREAM_BOOKS.has(pick.line_source);
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
+                <BookLink book={pick.line_source} offshore={isOffshore} />
+                {(pick.books_checked ?? 0) > 1 && (
+                  <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    best of {pick.books_checked}
+                  </span>
+                )}
+                {isOffshore && (
+                  <span style={{ fontSize: '0.6rem', color: '#f59e0b', fontStyle: 'italic' }}>
+                    offshore only — mainstream books may not have this line
+                  </span>
+                )}
+              </div>
+            );
+          })() : (
             <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
               model-projected line
             </div>
