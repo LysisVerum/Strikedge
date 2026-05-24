@@ -219,6 +219,17 @@ def train(use_real_data: bool = False, _override_df: pd.DataFrame = None):
     X = df[FEATURE_COLS].copy()
     y = df["ks_per_start"].values
 
+    # Recency weights: recent seasons are more representative of current league
+    # environment — strikeout rates and pitcher usage patterns shift year-to-year.
+    _year_weights = {2016: 1.0, 2017: 1.0, 2018: 1.2, 2019: 1.2,
+                     2021: 1.5, 2022: 2.0, 2023: 2.5, 2024: 3.0, 2025: 3.0}
+    if "season" in df.columns:
+        sample_weight = df["season"].map(_year_weights).fillna(1.0).values
+        seasons_repr = df["season"].value_counts().sort_index().to_dict()
+        print(f"Recency weights applied. Season distribution: {seasons_repr}")
+    else:
+        sample_weight = None
+
     # Poisson objective: ks are count data, this models the distribution correctly
     # and handles extreme low/high K games better than standard regression
     pipeline = Pipeline([
@@ -238,7 +249,7 @@ def train(use_real_data: bool = False, _override_df: pd.DataFrame = None):
         )),
     ])
 
-    print("\nCross-validating (5-fold KFold)...")
+    print("\nCross-validating (5-fold KFold, unweighted for comparability)...")
     cv = KFold(n_splits=5, shuffle=True, random_state=42)
     neg_mae = cross_val_score(pipeline, X, y, cv=cv, scoring="neg_mean_absolute_error")
     cv_mae  = -neg_mae.mean()
@@ -246,7 +257,10 @@ def train(use_real_data: bool = False, _override_df: pd.DataFrame = None):
     print(f"  CV MAE:  {cv_mae:.3f} ± {cv_std:.3f} Ks/start")
 
     print("\nFitting final model on full training set...")
-    pipeline.fit(X, y)
+    if sample_weight is not None:
+        pipeline.fit(X, y, model__sample_weight=sample_weight)
+    else:
+        pipeline.fit(X, y)
 
     y_pred = pipeline.predict(X)
     train_mae    = mean_absolute_error(y, y_pred)

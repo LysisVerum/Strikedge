@@ -60,12 +60,17 @@ def _rolling_features(game_log: list[dict], as_of_date: str) -> dict:
     last5  = past[-5:]
     last15 = past[-15:]
 
+    k5  = k_pct(last5)
+    k15 = k_pct(last15)
+
     return {
-        "k_pct_last5":  k_pct(last5),
-        "k_pct_last15": k_pct(last15),
-        "k_pct_season": k_pct(season_rows) if season_rows else k_pct(last15),
+        "k_pct_last5":  k5,
+        "k_pct_last15": k15,
+        "k_pct_season": k_pct(season_rows) if season_rows else k15,
         "fip_last15":   fip(last15),
         "avg_ip_last5": float(np.mean([g["IP"] for g in last5])),
+        "k_trend":      k5 - k15,
+        "season_starts": float(len(season_rows)),
     }
 
 

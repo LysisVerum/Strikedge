@@ -1,15 +1,16 @@
 {
-  "cv_mae": 1.8539,
-  "cv_mae_std": 0.0188,
-  "train_mae": 1.7066,
-  "residual_std": 2.1357,
-  "n_samples": 22198,
+  "cv_mae": 1.847,
+  "cv_mae_std": 0.0184,
+  "train_mae": 1.7134,
+  "residual_std": 2.1463,
+  "n_samples": 25180,
   "objective": "count:poisson",
   "data_source": "real_statcast",
   "features": [
     "k_pct_last5",
     "k_pct_last15",
     "k_pct_season",
+    "k_trend",
     "fip_last15",
     "ff_pct",
     "ff_velo_avg",
@@ -18,19 +19,30 @@
     "whiff_pct",
     "csw_pct",
     "avg_ip_last5",
+    "season_starts",
     "opp_k_pct",
     "opp_lineup_k_pct",
     "matchup_k_score",
     "umpire_k_rate"
   ],
   "top_features": {
-    "k_pct_last15": 0.2745,
-    "k_pct_season": 0.1411,
-    "avg_ip_last5": 0.059,
-    "ff_velo_avg": 0.0586,
-    "opp_lineup_k_pct": 0.0522,
-    "ff_spin_avg": 0.0481,
-    "whiff_pct": 0.0473,
-    "swstr_pct": 0.047
-  }
+    "k_pct_last15": 0.2415,
+    "k_pct_season": 0.1096,
+    "avg_ip_last5": 0.0559,
+    "ff_velo_avg": 0.0549,
+    "opp_lineup_k_pct": 0.0544,
+    "opp_k_pct": 0.0477,
+    "k_pct_last5": 0.0459,
+    "season_starts": 0.0454
+  },
+  "train_seasons": [
+    2016,
+    2017,
+    2018,
+    2019,
+    2021,
+    2022,
+    2023,
+    2024
+  ]
 }

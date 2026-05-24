@@ -29,7 +29,7 @@ OUT_PATH   = Path("artifacts/backtest_results.json")
 BANKROLL       = 1000.0
 KELLY_FRAC     = 0.25
 MIN_EDGE_UNDER = 0.10   # 10% edge required for UNDER picks
-MIN_EDGE_OVER  = 0.15   # 15% edge required for OVER picks (higher bar — model overpredicts)
+MIN_EDGE_OVER  = 0.20   # 20% edge required for OVER picks (raised — OVER win rate historically lower)
 
 
 def _safe_feat(v):

@@ -110,7 +110,19 @@ class StrikeoutModel:
             warnings.simplefilter("ignore")
             predicted_ks = float(self._model.predict(X)[0])
 
-        std = _load_residual_std()
+        # Early-season flag: fewer than 5 current-season starts means rolling
+        # features are mostly prior-year data — predictions are less reliable.
+        raw_ss = feature_row.get("season_starts", np.nan) if hasattr(feature_row, "get") else feature_row.get("season_starts", np.nan)
+        try:
+            season_starts = float(raw_ss) if raw_ss is not None else np.nan
+        except (TypeError, ValueError):
+            season_starts = np.nan
+        early_season = np.isnan(season_starts) or season_starts < 5
+
+        base_std = _load_residual_std()
+        # Widen uncertainty early in the season: more variance, less confidence.
+        std = base_std * 1.25 if early_season else base_std
+
         model_prob_over  = _normal_prob_over(predicted_ks, line, std)
         model_prob_under = 1 - model_prob_over
 
@@ -126,15 +138,18 @@ class StrikeoutModel:
             implied_prob_over = _american_to_implied(over_odds)
 
         confidence = _confidence_tier(edge_pct)
+        # Cap at MEDIUM when rolling features are still based on prior-year data.
+        if early_season and confidence == "HIGH":
+            confidence = "MEDIUM"
 
-        # OVER threshold scales with predicted Ks — model overpredicts more
-        # at higher K totals, so we demand a larger edge to compensate.
+        # OVER threshold raised — OVER bets historically underperform UNDER bets,
+        # especially early in the season when line setters price in regression.
         if predicted_ks < 4:
-            over_threshold = 0.08
+            over_threshold = 0.15
         elif predicted_ks < 6.5:
-            over_threshold = 0.10
+            over_threshold = 0.20
         else:
-            over_threshold = 0.12
+            over_threshold = 0.22
 
         if edge_over >= edge_under:
             recommendation = "OVER" if edge_over >= over_threshold else "PASS"

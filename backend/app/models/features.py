@@ -14,6 +14,8 @@ FEATURE_COLS = [
     "k_pct_last5",
     "k_pct_last15",
     "k_pct_season",
+    # K-rate momentum: positive = heating up, negative = slipping
+    "k_trend",       # k_pct_last5 - k_pct_last15
     # Pitcher quality (defense-independent)
     "fip_last15",    # fielding-independent pitching over last 15 starts
     # Pitch-mix features (from Statcast)
@@ -27,6 +29,8 @@ FEATURE_COLS = [
     "csw_pct",       # called strike + whiff % = (called_strike + swinging_strike) / total pitches
     # Recent workload
     "avg_ip_last5",
+    # Season context — early-season starts have stale prior-year features
+    "season_starts", # qualifying starts made so far this season (0 on debut)
     # Opponent factors
     "opp_k_pct",           # opponent team K% prior season (fallback)
     "opp_lineup_k_pct",    # weighted K% of today's actual lineup (prior-season rates)
