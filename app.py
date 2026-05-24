@@ -82,6 +82,9 @@ _SEED_ALWAYS_OVERWRITE = {
     "backtest_summary.json",
     "hitting_model.pkl",
     "strikeout_model.pkl",
+    # Always overwrite so retraining deployments replace the persistent volume copy.
+    "strikeout_model.joblib",
+    "strikeout_model_metrics.json",
 }
 
 def _seed_artifacts():
