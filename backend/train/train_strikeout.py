@@ -272,7 +272,7 @@ def train(use_real_data: bool = False, _override_df: pd.DataFrame = None):
         "residual_std": round(float(residual_std), 4),
         "n_samples":    int(len(df)),
         "objective":    "count:poisson",
-        "data_source":  "real_statcast" if use_real_data else "synthetic_calibrated",
+        "data_source":  "real_statcast" if (use_real_data or _override_df is not None) else "synthetic_calibrated",
         "features":     FEATURE_COLS,
         "top_features": {k: round(float(v), 4) for k, v in top},
     }
