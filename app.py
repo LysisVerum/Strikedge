@@ -57,6 +57,7 @@ from backend.app.data.umpire import get_todays_umpires
 from backend.app.data.prediction_log import (
     log_predictions, get_live_record, update_results, delete_prediction,
     log_skipped, update_skipped_results, get_skipped_record,
+    purge_pass_entries,
 )
 from backend.app.data.k_log import log_slate_predictions, update_actuals, get_accuracy_stats
 from backend.app.data.hitting_log import (
@@ -102,6 +103,7 @@ def _seed_artifacts():
             print(f"[seed] {action} {src.name} -> artifacts/")
 
 _seed_artifacts()
+purge_pass_entries()
 
 FREE_PICKS_LIMIT   = 2     # picks shown to free-tier / unauthenticated users
 MIN_EDGE_UNDER     = 0.10  # 10% edge required to surface an UNDER pick

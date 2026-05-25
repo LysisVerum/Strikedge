@@ -23,12 +23,24 @@ def _save(records: list[dict], path: Path = LOG_PATH):
     path.write_text(json.dumps(records, indent=2))
 
 
+def purge_pass_entries():
+    """Remove prediction_log entries with recommendation=PASS (no real bet placed)."""
+    records = _load()
+    before = len(records)
+    records = [r for r in records if r.get("recommendation") != "PASS"]
+    if len(records) < before:
+        _save(records)
+        print(f"[prediction_log] Purged {before - len(records)} PASS entries from bet log.")
+    return before - len(records)
+
+
 def log_predictions(predictions: list[dict]):
     """
     Append today's predictions. Each dict should have at minimum:
         date, pitcher_name, mlbam_id, line, over_odds, line_source,
         predicted_ks, recommendation, edge, confidence, model_prob_over
     Sets actual_ks / outcome / pnl to null until results are checked.
+    PASS recommendations are silently skipped — they belong in skipped_log only.
     """
     records = _load()
     today = date.today().isoformat()
@@ -39,6 +51,8 @@ def log_predictions(predictions: list[dict]):
     }
 
     for p in predictions:
+        if p.get("recommendation") == "PASS":
+            continue
         if p["pitcher_name"].lower() in existing_names:
             for rec in records:
                 if rec.get("date") == today and rec["pitcher_name"].lower() == p["pitcher_name"].lower():
@@ -108,19 +122,25 @@ def update_results(date_str: str, results: list[dict]):
     """
     Update entries for date_str with actual_ks / outcome / pnl.
     results: [{"mlbam_id": int, "actual_ks": float}, ...]
+    PASS entries found during resolution are removed from the log (they were
+    logged in error — they belong in skipped_log, not the bet log).
     """
     records = _load()
     result_map = {r["mlbam_id"]: r["actual_ks"] for r in results}
 
     updated = 0
+    keep = []
     for rec in records:
-        if rec.get("date") != date_str:
-            continue
-        mlbam_id = rec.get("mlbam_id")
-        if mlbam_id not in result_map:
+        if rec.get("date") != date_str or rec.get("mlbam_id") not in result_map:
+            keep.append(rec)
             continue
 
-        actual = result_map[mlbam_id]
+        # PASS entries were logged in error — drop them now that we know the game happened
+        if rec.get("recommendation") == "PASS":
+            updated += 1
+            continue
+
+        actual = result_map[rec["mlbam_id"]]
         rec["actual_ks"] = actual
         line = rec["line"]
         rec_side = rec["recommendation"]
@@ -147,9 +167,10 @@ def update_results(date_str: str, results: list[dict]):
             else:
                 rec["outcome"] = "LOSS"
                 rec["pnl"] = -bet
+        keep.append(rec)
         updated += 1
 
-    _save(records)
+    _save(keep)
     return updated
 
 
