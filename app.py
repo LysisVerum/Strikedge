@@ -105,6 +105,21 @@ def _seed_artifacts():
 _seed_artifacts()
 purge_pass_entries()
 
+# Delete stale empty lines_cache files so Railway re-fetches live odds on startup
+def _purge_empty_lines_cache():
+    artifacts = Path(__file__).parent / "backend" / "artifacts"
+    import json as _json
+    for f in artifacts.glob("lines_cache_*.json"):
+        try:
+            payload = _json.loads(f.read_text(encoding="utf-8"))
+            if not payload.get("lines"):
+                f.unlink()
+                print(f"[seed] Deleted empty lines cache: {f.name}")
+        except Exception:
+            pass
+
+_purge_empty_lines_cache()
+
 FREE_PICKS_LIMIT   = 2     # picks shown to free-tier / unauthenticated users
 MIN_EDGE_UNDER     = 0.10  # 10% edge required to surface an UNDER pick
 MIN_EDGE_OVER      = 0.15  # 15% edge required to surface an OVER pick (higher bar)

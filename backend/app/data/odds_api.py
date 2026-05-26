@@ -32,7 +32,7 @@ _DISK_TTL  = 7200  # 2 hours before disk cache is considered stale
 
 _credits_remaining: int | None = None
 _last_real_fetch_ts: float = 0.0   # epoch seconds of last actual API call
-_FORCE_REFRESH_MIN_INTERVAL = 1800  # 30 minutes between force-refreshes
+_FORCE_REFRESH_MIN_INTERVAL = 600   # 10 minutes between force-refreshes
 
 # Preferred sportsbook order — first available book wins per pitcher
 PREFERRED_BOOKS = ["DraftKings", "FanDuel", "BetMGM", "Caesars", "PointsBet"]
@@ -93,7 +93,7 @@ def _disk_cache_path() -> Path:
 
 def _load_disk_cache() -> dict | None:
     """Return cached lines if they exist, are less than _DISK_TTL seconds old,
-    and use the current format (has over_book/under_book for line shopping)."""
+    non-empty, and use the current format (has over_book/under_book for line shopping)."""
     path = _disk_cache_path()
     if not path.exists():
         return None
@@ -102,11 +102,14 @@ def _load_disk_cache() -> dict | None:
         age = time.time() - payload.get("ts", 0)
         if age < _DISK_TTL:
             lines = payload["lines"]
-            sample = next(iter(lines.values()), {}) if lines else {}
-            if lines and ("over_book" not in sample or "all_lines" not in sample):
+            if not lines:
+                # Empty cache — DK hadn't posted lines yet when saved; re-fetch
+                return None
+            sample = next(iter(lines.values()), {})
+            if "over_book" not in sample or "all_lines" not in sample:
                 print("  [odds-api] disk cache outdated format — forcing refresh")
                 return None
-            print(f"  [odds-api] disk cache hit ({int(age)}s old) — skipping API calls")
+            print(f"  [odds-api] disk cache hit ({int(age)}s old, {len(lines)} pitchers) — skipping API calls")
             return lines
     except Exception:
         pass
@@ -114,6 +117,8 @@ def _load_disk_cache() -> dict | None:
 
 
 def _save_disk_cache(lines: dict):
+    if not lines:
+        return  # Never cache empty results — lines may not be posted yet
     _ARTIFACTS.mkdir(parents=True, exist_ok=True)
     path = _disk_cache_path()
     path.write_text(
