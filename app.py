@@ -54,6 +54,7 @@ from backend.app.data.statcast_agg import get_pitcher_statcast_range, pitch_mix_
 from backend.app.data.pipeline import build_inference_row
 from backend.app.data.odds_api import get_sp_strikeout_lines, match_line_to_starter, get_credits_remaining, invalidate_player_prop_cache
 from backend.app.data.umpire import get_todays_umpires
+from backend.app.data.pitcher_status import get_pitcher_flags
 from backend.app.data.prediction_log import (
     log_predictions, get_live_record, update_results, delete_prediction,
     log_skipped, update_skipped_results, get_skipped_record,
@@ -421,10 +422,11 @@ def _augment_from_lines(starters: list[dict], live_lines: dict, season: int, gam
     return starters
 
 
-def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_lines: dict = None, umpire_map: dict = None) -> list:
+def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_lines: dict = None, umpire_map: dict = None, pitcher_flags: dict = None) -> list:
     picks = []
-    live_lines = live_lines or {}
-    umpire_map = umpire_map or {}
+    live_lines    = live_lines    or {}
+    umpire_map    = umpire_map    or {}
+    pitcher_flags = pitcher_flags or {}
 
     for starter in starters:
         name = starter["pitcher_name"]
@@ -504,11 +506,14 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
                 line_src       = over_book
             recommended_bet = _kelly_bet(model_prob_win, bet_odds)
 
+            mlbam_id = starter.get("mlbam_id", 0)
+            flag_info = pitcher_flags.get(mlbam_id)
+
             picks.append({
                 "rank":              0,
                 "has_line":          True,
                 "live_line":         has_live,
-                "mlbam_id":          starter.get("mlbam_id", 0),
+                "mlbam_id":          mlbam_id,
                 "pitcher_name":      pred.pitcher_name,
                 "matchup":           pred.matchup,
                 "bet":               f"{side} {pred.line} K",
@@ -530,6 +535,7 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
                 "team":              starter.get("team", ""),
                 "opponent":          starter.get("opponent_abbr", ""),
                 "recommended_bet":   recommended_bet,
+                "pitcher_flag":      flag_info,
                 "features": {
                     "k5":            _safe(fv.get("k_pct_last5")),
                     "k15":           _safe(fv.get("k_pct_last15")),
@@ -760,9 +766,18 @@ def _refresh_data_inner(force_odds_refresh: bool = False):
         print(f"[mlbet] Could not fetch umpires: {e}")
         umpire_map = {}
 
+    print("[mlbet] Checking pitcher IL return flags...")
+    try:
+        pitcher_flags = get_pitcher_flags(game_date)
+        if pitcher_flags:
+            print(f"[mlbet] {len(pitcher_flags)} pitcher(s) flagged for recent IL return.")
+    except Exception as e:
+        print(f"[mlbet] Could not fetch pitcher flags: {e}")
+        pitcher_flags = {}
+
     print("[mlbet] Building feature rows and running model...")
     try:
-        picks, all_processed = _run_slate(starters, team_k_map, game_date, live_lines, umpire_map)
+        picks, all_processed = _run_slate(starters, team_k_map, game_date, live_lines, umpire_map, pitcher_flags)
     except Exception as e:
         print(f"[mlbet] _run_slate error: {e}")
         picks = []

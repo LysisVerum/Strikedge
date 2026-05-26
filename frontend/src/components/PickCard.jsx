@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ExternalLink } from 'lucide-react';
+import { ChevronDown, ExternalLink, AlertTriangle } from 'lucide-react';
 import PickDetail from './PickDetail';
 import PitcherCard from './PitcherCard';
 
@@ -126,6 +126,31 @@ function NoLineCard({ pick, index }) {
           <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
             {pick.matchup}
           </div>
+          {pick.pitcher_flag && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+              marginTop: '0.4rem', padding: '3px 8px', borderRadius: 6,
+              background: pick.pitcher_flag.severity === 'high'
+                ? 'rgba(239,68,68,0.08)'
+                : pick.pitcher_flag.severity === 'medium'
+                  ? 'rgba(245,158,11,0.08)' : 'rgba(139,148,158,0.08)',
+              border: `1px solid ${pick.pitcher_flag.severity === 'high'
+                ? 'rgba(239,68,68,0.3)'
+                : pick.pitcher_flag.severity === 'medium'
+                  ? 'rgba(245,158,11,0.3)' : 'rgba(139,148,158,0.25)'}`,
+            }}>
+              <AlertTriangle size={11} color={
+                pick.pitcher_flag.severity === 'high' ? '#ef4444'
+                : pick.pitcher_flag.severity === 'medium' ? '#f59e0b' : '#8b949e'
+              } />
+              <span style={{ fontSize: '0.7rem', fontWeight: 600, color:
+                pick.pitcher_flag.severity === 'high' ? '#ef4444'
+                : pick.pitcher_flag.severity === 'medium' ? '#f59e0b' : '#8b949e'
+              }}>
+                {pick.pitcher_flag.detail}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Predicted Ks — only data we can show */}
@@ -212,6 +237,33 @@ export default function PickCard({ pick, index }) {
               {pick.confidence}
             </span>
           </div>
+          {pick.pitcher_flag && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+              margin: '0.3rem 0 0.45rem',
+              padding: '5px 10px', borderRadius: 7,
+              background: pick.pitcher_flag.severity === 'high'
+                ? 'rgba(239,68,68,0.08)'
+                : pick.pitcher_flag.severity === 'medium'
+                  ? 'rgba(245,158,11,0.08)' : 'rgba(139,148,158,0.08)',
+              border: `1px solid ${pick.pitcher_flag.severity === 'high'
+                ? 'rgba(239,68,68,0.3)'
+                : pick.pitcher_flag.severity === 'medium'
+                  ? 'rgba(245,158,11,0.3)' : 'rgba(139,148,158,0.25)'}`,
+            }}>
+              <AlertTriangle size={12} color={
+                pick.pitcher_flag.severity === 'high' ? '#ef4444'
+                : pick.pitcher_flag.severity === 'medium' ? '#f59e0b' : '#8b949e'
+              } />
+              <span style={{
+                fontSize: '0.72rem', fontWeight: 600,
+                color: pick.pitcher_flag.severity === 'high' ? '#ef4444'
+                  : pick.pitcher_flag.severity === 'medium' ? '#f59e0b' : '#8b949e',
+              }}>
+                {pick.pitcher_flag.detail}
+              </span>
+            </div>
+          )}
           <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.45rem' }}>
             <span style={{ color: REC_COLORS[pick.recommendation], fontWeight: 700 }}>{pick.bet}</span>
             {pick.recommendation === 'PASS' && pick.over_odds != null && pick.under_odds != null ? (
