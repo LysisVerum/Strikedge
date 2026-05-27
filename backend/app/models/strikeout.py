@@ -74,7 +74,11 @@ def _american_to_implied(odds: int) -> float:
 
 def _normal_prob_over(predicted: float, line: float, std: float) -> float:
     from scipy import stats
-    return float(1 - stats.norm.cdf(line + 0.5, loc=predicted, scale=std))
+    # Continuity correction for discrete strikeout counts:
+    #   Integer line (5.0): OVER wins at X >= 6, so use cutoff 5.5
+    #   Half-integer line (5.5): OVER wins at X >= 6 = ceil(5.5), so cutoff is 5.5 (line itself)
+    cutoff = line + 0.5 if line % 1 == 0 else line
+    return float(1 - stats.norm.cdf(cutoff, loc=predicted, scale=std))
 
 
 class StrikeoutModel:
@@ -142,14 +146,14 @@ class StrikeoutModel:
         if early_season and confidence == "HIGH":
             confidence = "MEDIUM"
 
-        # OVER threshold raised — OVER bets historically underperform UNDER bets,
-        # especially early in the season when line setters price in regression.
+        # OVER threshold: slightly higher than UNDER (0.10) because book lines tend
+        # to be set slightly under the true median, favouring the under side.
         if predicted_ks < 4:
-            over_threshold = 0.15
+            over_threshold = 0.12
         elif predicted_ks < 6.5:
-            over_threshold = 0.20
+            over_threshold = 0.15
         else:
-            over_threshold = 0.22
+            over_threshold = 0.18
 
         if edge_over >= edge_under:
             recommendation = "OVER" if edge_over >= over_threshold else "PASS"

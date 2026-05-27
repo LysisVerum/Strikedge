@@ -29,7 +29,7 @@ TEST_PATH = Path("artifacts/test_data.parquet")
 
 # Betting sim parameters (mirror production thresholds)
 MIN_EDGE_UNDER = 0.10
-MIN_EDGE_OVER  = 0.15
+MIN_EDGE_OVER  = 0.15  # mid-range of new sliding scale
 BANKROLL       = 1000.0
 KELLY_FRAC     = 0.25
 DEFAULT_ODDS   = -115
@@ -66,8 +66,9 @@ def simulate_betting(y_true, y_pred, residual_std, line_col=None):
         line = round(predicted * 2) / 2  # nearest 0.5
         line = max(3.5, min(line, 12.5))
 
-        prob_over  = 1 - norm.cdf(line, loc=predicted, scale=residual_std)
-        prob_under = norm.cdf(line, loc=predicted, scale=residual_std)
+        cutoff     = line + 0.5 if line % 1 == 0 else line
+        prob_over  = 1 - norm.cdf(cutoff, loc=predicted, scale=residual_std)
+        prob_under = norm.cdf(cutoff, loc=predicted, scale=residual_std)
         implied    = _implied_prob(DEFAULT_ODDS)
 
         edge_over  = prob_over  - implied
