@@ -82,6 +82,8 @@ load_dotenv(Path(__file__).parent / "backend" / ".env")
 _SEED_ALWAYS_OVERWRITE = {
     "hitting_backtest_summary.json",
     "backtest_summary.json",
+    "backtest_results.json",           # always refresh so new backtests show up
+    "backtest_results_combined.json",  # legacy name — overwrite so stale data doesn't persist
     "hitting_model.pkl",
     "strikeout_model.pkl",
     # Always overwrite so retraining deployments replace the persistent volume copy.
@@ -1240,9 +1242,11 @@ def todays_slate():
 def performance():
     if not _current_email():
         abort(401, "Sign in to view performance data")
-    results_path = Path(__file__).parent / "backend" / "artifacts" / "backtest_results_combined.json"
+    artifacts = Path(__file__).parent / "backend" / "artifacts"
+    # Prefer the canonical output of train.backtest; fall back to legacy combined file
+    results_path = artifacts / "backtest_results.json"
     if not results_path.exists():
-        results_path = Path(__file__).parent / "backend" / "artifacts" / "backtest_results.json"
+        results_path = artifacts / "backtest_results_combined.json"
     if not results_path.exists():
         return jsonify({"error": "No backtest results yet. Run: cd backend && python -m train.backtest"}), 404
 
