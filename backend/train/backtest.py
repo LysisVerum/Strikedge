@@ -126,7 +126,9 @@ def run_backtest(data_path: Path = None, out_path: Path = None):
         if avg_ip5 is not None and not np.isnan(float(avg_ip5)) and float(avg_ip5) < 2.5:
             continue
 
-        feature_row = row[FEATURE_COLS]
+        # Fill any feature columns that were added after this parquet was built with NaN;
+        # the model pipeline's SimpleImputer handles missing values gracefully.
+        feature_row = pd.Series({col: row.get(col, np.nan) for col in FEATURE_COLS})
         pred = strikeout_model.predict(
             feature_row  = feature_row,
             line         = line,
