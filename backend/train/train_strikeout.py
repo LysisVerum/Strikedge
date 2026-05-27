@@ -262,11 +262,9 @@ def train(use_real_data: bool = False, _override_df: pd.DataFrame = None):
     else:
         pipeline.fit(X, y)
 
-    y_pred = pipeline.predict(X)
-    train_mae    = mean_absolute_error(y, y_pred)
-    residual_std = float(np.std(y - y_pred))
+    y_pred    = pipeline.predict(X)
+    train_mae = mean_absolute_error(y, y_pred)
     print(f"  Train MAE:    {train_mae:.3f} Ks/start")
-    print(f"  Residual std: {residual_std:.3f} Ks  (used in P(K > line) normal CDF)")
 
     xgb_model = pipeline.named_steps["model"]
     importances = dict(zip(FEATURE_COLS, xgb_model.feature_importances_))
@@ -279,16 +277,42 @@ def train(use_real_data: bool = False, _override_df: pd.DataFrame = None):
     joblib.dump(pipeline, ARTIFACT_PATH)
     print(f"\nModel saved: {ARTIFACT_PATH}")
 
+    # Evaluate residual_std on the HELD-OUT test set, not on training data.
+    # Using training residuals understates the true uncertainty because the model
+    # partially memorises its training data; this inflates confidence in the
+    # normal-CDF probability estimates and creates spurious backtest edge.
+    test_data_path = ARTIFACT_PATH.parent / "test_data.parquet"
+    if test_data_path.exists():
+        df_test     = pd.read_parquet(test_data_path)
+        X_test      = df_test[FEATURE_COLS]
+        y_test      = df_test["ks_per_start"].values
+        y_pred_test = pipeline.predict(X_test)
+        test_mae    = mean_absolute_error(y_test, y_pred_test)
+        residual_std = float(np.std(y_test - y_pred_test))
+        print(f"  Test  MAE:    {test_mae:.3f} Ks/start  (held-out, no leakage)")
+        print(f"  Residual std: {residual_std:.3f} Ks  (test-set — used in P(K > line) CDF)")
+        train_seasons_list = sorted(df["season"].unique().tolist()) if "season" in df.columns else []
+    else:
+        # Fallback: use CV MAE to approximate test residual std
+        # (MAE ≈ 0.798 * std for normal distributions)
+        residual_std = float(cv_mae / 0.798)
+        test_mae = None
+        print(f"  WARNING: test_data.parquet not found — residual_std estimated from CV MAE")
+        print(f"  Residual std: {residual_std:.3f} Ks  (CV-based estimate)")
+        train_seasons_list = sorted(df["season"].unique().tolist()) if "season" in df.columns else []
+
     metrics = {
-        "cv_mae":       round(float(cv_mae), 4),
-        "cv_mae_std":   round(float(cv_std), 4),
-        "train_mae":    round(float(train_mae), 4),
-        "residual_std": round(float(residual_std), 4),
-        "n_samples":    int(len(df)),
-        "objective":    "count:poisson",
-        "data_source":  "real_statcast" if (use_real_data or _override_df is not None) else "synthetic_calibrated",
-        "features":     FEATURE_COLS,
-        "top_features": {k: round(float(v), 4) for k, v in top},
+        "cv_mae":          round(float(cv_mae), 4),
+        "cv_mae_std":      round(float(cv_std), 4),
+        "train_mae":       round(float(train_mae), 4),
+        "test_mae":        round(float(test_mae), 4) if test_mae is not None else None,
+        "residual_std":    round(float(residual_std), 4),  # TEST-SET residual — no leakage
+        "n_samples":       int(len(df)),
+        "objective":       "count:poisson",
+        "data_source":     "real_statcast" if (use_real_data or _override_df is not None) else "synthetic_calibrated",
+        "features":        FEATURE_COLS,
+        "top_features":    {k: round(float(v), 4) for k, v in top},
+        "train_seasons":   train_seasons_list,
     }
     METRICS_PATH.write_text(json.dumps(metrics, indent=2))
     print(f"Metrics saved: {METRICS_PATH}")
@@ -300,6 +324,16 @@ if __name__ == "__main__":
     if train_data_path.exists():
         print(f"Found train dataset at {train_data_path} — using it.")
         df_real = pd.read_parquet(train_data_path)
+        # Sanity check: warn if test seasons appear in training data
+        test_data_path = Path("artifacts/test_data.parquet")
+        if test_data_path.exists():
+            test_seasons = set(pd.read_parquet(test_data_path)["season"].unique())
+            train_seasons = set(df_real["season"].unique())
+            overlap = test_seasons & train_seasons
+            if overlap:
+                print(f"  ERROR: Train/test overlap detected — seasons {overlap} appear in both datasets!")
+                print("  Re-run build_dataset.py to create a clean split.")
+                sys.exit(1)
         train(use_real_data=False, _override_df=df_real)
     else:
         print("No train dataset found — using synthetic data.")
