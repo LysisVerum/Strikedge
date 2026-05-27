@@ -121,6 +121,11 @@ def run_backtest(data_path: Path = None, out_path: Path = None):
         if pd.isna(row.get("k_pct_last5")) or pd.isna(row.get("k_pct_last15")):
             continue
 
+        # Opener / short-stint gate — same thresholds as _run_slate
+        avg_ip5 = row.get("avg_ip_last5")
+        if avg_ip5 is not None and not np.isnan(float(avg_ip5)) and float(avg_ip5) < 2.5:
+            continue
+
         feature_row = row[FEATURE_COLS]
         pred = strikeout_model.predict(
             feature_row  = feature_row,
@@ -181,6 +186,8 @@ def run_backtest(data_path: Path = None, out_path: Path = None):
             "bet":               bet,
             "pnl":               pnl,
             "outcome":           outcome,
+            "avg_ip_last5":      float(avg_ip5) if avg_ip5 is not None else None,
+            "short_stint":       float(avg_ip5) < 4.0 if avg_ip5 is not None else False,
             "features":          _row_features(row),
         })
 
@@ -199,6 +206,27 @@ def run_backtest(data_path: Path = None, out_path: Path = None):
     print(f"Total wagered: ${total_wagered:,.2f}")
     print(f"Total P&L:     ${total_pnl:,.2f}")
     print(f"ROI:           {roi:+.1f}%")
+
+    # Short-stint breakdown — see if low-IP pitchers were hurting results
+    short_stint = df_r[df_r["short_stint"] == True]
+    normal_ip   = df_r[df_r["short_stint"] == False]
+    if not short_stint.empty:
+        ss_wins = (short_stint["outcome"] == "WIN").sum()
+        ss_losses = (short_stint["outcome"] == "LOSS").sum()
+        ss_wag = short_stint["bet"].sum()
+        ss_pnl = short_stint["pnl"].sum()
+        ss_roi = ss_pnl / ss_wag * 100 if ss_wag > 0 else 0
+        ni_wins = (normal_ip["outcome"] == "WIN").sum()
+        ni_losses = (normal_ip["outcome"] == "LOSS").sum()
+        ni_wag = normal_ip["bet"].sum()
+        ni_pnl = normal_ip["pnl"].sum()
+        ni_roi = ni_pnl / ni_wag * 100 if ni_wag > 0 else 0
+        print(f"\nIP breakdown (guardrail impact):")
+        print(f"  Normal (>=4.0 IP): {len(normal_ip)} bets, "
+              f"{ni_wins/(ni_wins+ni_losses)*100:.1f}% WR, {ni_roi:+.1f}% ROI, ${ni_pnl:+,.2f}")
+        print(f"  Short  (<4.0 IP):  {len(short_stint)} bets, "
+              f"{ss_wins/(ss_wins+ss_losses)*100 if (ss_wins+ss_losses)>0 else 0:.1f}% WR, "
+              f"{ss_roi:+.1f}% ROI, ${ss_pnl:+,.2f}")
 
     by_tier = {}
     for tier in ["HIGH", "MEDIUM", "LOW"]:
@@ -238,6 +266,27 @@ def run_backtest(data_path: Path = None, out_path: Path = None):
     cumulative = df_r.sort_values("date")["pnl"].cumsum().round(2).tolist()
     records_out = df_r.drop(columns=["month"]).to_dict("records")
 
+    ip_breakdown = {}
+    if not short_stint.empty:
+        ip_breakdown = {
+            "normal_ip": {
+                "bets":    int(len(normal_ip)),
+                "wins":    int(ni_wins),
+                "losses":  int(ni_losses),
+                "winRate": f"{ni_wins/(ni_wins+ni_losses)*100:.1f}%" if (ni_wins+ni_losses)>0 else "0%",
+                "roi":     f"{ni_roi:+.1f}%",
+                "pnl":     round(float(ni_pnl), 2),
+            },
+            "short_stint": {
+                "bets":    int(len(short_stint)),
+                "wins":    int(ss_wins),
+                "losses":  int(ss_losses),
+                "winRate": f"{ss_wins/(ss_wins+ss_losses)*100:.1f}%" if (ss_wins+ss_losses)>0 else "0%",
+                "roi":     f"{ss_roi:+.1f}%",
+                "pnl":     round(float(ss_pnl), 2),
+            },
+        }
+
     results = {
         "generated_at": pd.Timestamp.now().isoformat(),
         "test_rows":    len(df_r),
@@ -257,6 +306,7 @@ def run_backtest(data_path: Path = None, out_path: Path = None):
             "units":   f"{total_pnl / BANKROLL:+.2f}u",
         },
         "byTier":         by_tier,
+        "byIP":           ip_breakdown,
         "monthly":        monthly,
         "cumulative_pnl": cumulative,
         "records":        records_out,
