@@ -59,6 +59,7 @@ def _rolling_features(game_log: list[dict], as_of_date: str) -> dict:
     season_rows = [g for g in past if g.get("season") == int(as_of_date[:4])]
     last5  = past[-5:]
     last15 = past[-15:]
+    last2  = past[-2:]
 
     k5  = k_pct(last5)
     k15 = k_pct(last15)
@@ -69,6 +70,7 @@ def _rolling_features(game_log: list[dict], as_of_date: str) -> dict:
         "k_pct_season": k_pct(season_rows) if season_rows else k15,
         "fip_last15":   fip(last15),
         "avg_ip_last5": float(np.mean([g["IP"] for g in last5])),
+        "avg_ip_last2": float(np.mean([g["IP"] for g in last2])) if last2 else np.nan,
         "k_trend":      k5 - k15,
         "season_starts": float(len(season_rows)),
     }
@@ -135,7 +137,11 @@ def build_inference_row(
         "umpire_k_rate":    umpire_k,
     }
 
-    return pd.Series({col: feature_dict.get(col, np.nan) for col in FEATURE_COLS})
+    # FEATURE_COLS are used by the model; avg_ip_last2 is diagnostic only (for
+    # opener/role-change detection in _run_slate — ignored by model.predict()).
+    series_data = {col: feature_dict.get(col, np.nan) for col in FEATURE_COLS}
+    series_data["avg_ip_last2"] = feature_dict.get("avg_ip_last2", np.nan)
+    return pd.Series(series_data)
 
 
 # ---------------------------------------------------------------------------

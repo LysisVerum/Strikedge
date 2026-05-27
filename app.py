@@ -439,6 +439,35 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
                 print(f"  [skip] {name}: insufficient K-rate history — omitting from slate")
                 continue
 
+            # Opener / short-stint detection — use recent IP to catch role changes
+            avg_ip5 = features.get("avg_ip_last5") or np.nan
+            avg_ip2 = features.get("avg_ip_last2") or np.nan
+            _ip5_ok = not (isinstance(avg_ip5, float) and np.isnan(avg_ip5))
+            _ip2_ok = not (isinstance(avg_ip2, float) and np.isnan(avg_ip2))
+
+            if _ip5_ok and avg_ip5 < 2.5:
+                print(f"  [skip] {name}: avg_ip_last5={avg_ip5:.1f} — likely opener, omitting")
+                continue
+
+            # Detect role changes: last 2 outings significantly shorter than 5-start avg
+            _role_changing = _ip2_ok and _ip5_ok and (avg_ip5 - avg_ip2) >= 1.5 and avg_ip2 < 3.5
+            _short_stint   = _ip5_ok and 2.5 <= avg_ip5 < 4.0 and not _role_changing
+
+            if _role_changing:
+                ip_flag = {
+                    "flag":     "SHORT_STINT",
+                    "detail":   f"Recent role change: last 2 starts avg {avg_ip2:.1f} IP vs {avg_ip5:.1f} IP rolling - pitch count likely limited",
+                    "severity": "high",
+                }
+            elif _short_stint:
+                ip_flag = {
+                    "flag":     "SHORT_STINT",
+                    "detail":   f"Short-stint pitcher: avg {avg_ip5:.1f} IP/start - may not reach higher lines",
+                    "severity": "medium",
+                }
+            else:
+                ip_flag = None
+
             matchup  = f"vs {starter['opponent_abbr']} @ {'home' if starter['is_home'] else 'away'}"
 
             # Use live sportsbook line if available, else fall back to model-projected line
@@ -507,7 +536,10 @@ def _run_slate(starters: list[dict], team_k_map: dict, game_date: str, live_line
             recommended_bet = _kelly_bet(model_prob_win, bet_odds)
 
             mlbam_id = starter.get("mlbam_id", 0)
-            flag_info = pitcher_flags.get(mlbam_id)
+            # Merge IL-return flag (from transactions API) with IP/role flag.
+            # SHORT_STINT takes priority since it directly affects the prediction validity.
+            il_flag  = pitcher_flags.get(mlbam_id)
+            flag_info = ip_flag if ip_flag else il_flag
 
             picks.append({
                 "rank":              0,
