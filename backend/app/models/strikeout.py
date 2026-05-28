@@ -146,8 +146,8 @@ class StrikeoutModel:
         if early_season and confidence == "HIGH":
             confidence = "MEDIUM"
 
-        # OVER threshold: slightly higher than UNDER (0.10) because book lines tend
-        # to be set slightly under the true median, favouring the under side.
+        # OVER thresholds: need more edge than UNDER because books shade lines
+        # slightly under true median, giving structural under-edge.
         if predicted_ks < 4:
             over_threshold = 0.12
         elif predicted_ks < 6.5:
@@ -155,8 +155,17 @@ class StrikeoutModel:
         else:
             over_threshold = 0.18
 
+        # OVER edge cap: backtesting shows OVER bets with >20% claimed edge have
+        # avg prediction 1+ Ks above the line but a *worse* MAE than lower-edge bets.
+        # The model is boldest exactly when it's most wrong — the book knows more.
+        # UNDER bets at any edge level remain valid.
+        MAX_OVER_EDGE = 0.20
+
         if edge_over >= edge_under:
-            recommendation = "OVER" if edge_over >= over_threshold else "PASS"
+            if over_threshold <= edge_over <= MAX_OVER_EDGE:
+                recommendation = "OVER"
+            else:
+                recommendation = "PASS"
         elif edge_under >= 0.10:
             recommendation = "UNDER"
         else:
