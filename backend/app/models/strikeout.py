@@ -146,27 +146,12 @@ class StrikeoutModel:
         if early_season and confidence == "HIGH":
             confidence = "MEDIUM"
 
-        # OVER thresholds: need more edge than UNDER because books shade lines
-        # slightly under true median, giving structural under-edge.
-        if predicted_ks < 4:
-            over_threshold = 0.12
-        elif predicted_ks < 6.5:
-            over_threshold = 0.15
-        else:
-            over_threshold = 0.18
-
-        # OVER edge cap: backtesting shows OVER bets with >20% claimed edge have
-        # avg prediction 1+ Ks above the line but a *worse* MAE than lower-edge bets.
-        # The model is boldest exactly when it's most wrong — the book knows more.
-        # UNDER bets at any edge level remain valid.
-        MAX_OVER_EDGE = 0.20
-
-        if edge_over >= edge_under:
-            if over_threshold <= edge_over <= MAX_OVER_EDGE:
-                recommendation = "OVER"
-            else:
-                recommendation = "PASS"
-        elif edge_under >= 0.10:
+        # OVER bets disabled: model trained on 2016-2023 overpredicts Ks by ~0.25/start
+        # in 2025 because league-wide K rates have fallen since the pitch clock (2023).
+        # Books price in current reality; model is stuck in a higher-K era.
+        # Every OVER edge bucket (15-30%+) showed negative or noise-level ROI on backtest.
+        # TODO: re-enable after retraining on full 2025 season data.
+        if edge_under >= 0.10:
             recommendation = "UNDER"
         else:
             recommendation = "PASS"
