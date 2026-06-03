@@ -59,19 +59,25 @@ def _rolling_features(game_log: list[dict], as_of_date: str) -> dict:
     season_rows = [g for g in past if g.get("season") == int(as_of_date[:4])]
     last5  = past[-5:]
     last15 = past[-15:]
+    last30 = past[-30:]
     last2  = past[-2:]
 
-    k5  = k_pct(last5)
-    k15 = k_pct(last15)
+    k5       = k_pct(last5)
+    k15      = k_pct(last15)
+    k30      = k_pct(last30) if len(last30) >= 5 else k15
+    k_career = k_pct(past)   if len(past) >= 10   else k15
 
     return {
-        "k_pct_last5":  k5,
-        "k_pct_last15": k15,
-        "k_pct_season": k_pct(season_rows) if season_rows else k15,
-        "fip_last15":   fip(last15),
-        "avg_ip_last5": float(np.mean([g["IP"] for g in last5])),
-        "avg_ip_last2": float(np.mean([g["IP"] for g in last2])) if last2 else np.nan,
-        "k_trend":      k5 - k15,
+        "k_pct_last5":   k5,
+        "k_pct_last15":  k15,
+        "k_pct_last30":  k30,
+        "k_pct_season":  k_pct(season_rows) if season_rows else k15,
+        "k_pct_career":  k_career,
+        "fip_last15":    fip(last15),
+        "avg_ip_last5":  float(np.mean([g["IP"] for g in last5])),
+        "avg_ip_last2":  float(np.mean([g["IP"] for g in last2])) if last2 else np.nan,
+        "k_trend":       k5 - k15,
+        "k_vs_career":   k15 - k_career,  # negative = currently below true talent level
         "season_starts": float(len(season_rows)),
     }
 
@@ -98,8 +104,13 @@ def build_inference_row(
         season = int(game_date[:4])
 
     # -- Game log rolling features --
-    # Include prior season through June — pitchers only have ~5-8 starts by then
-    seasons_to_pull = [season - 1, season] if int(game_date[5:7]) < 7 else [season]
+    # Pull 3 seasons so k_pct_career and k_pct_last30 have enough history.
+    # Early in the season also pull the prior year for rolling continuity.
+    month = int(game_date[5:7])
+    if month < 7:
+        seasons_to_pull = [season - 2, season - 1, season]
+    else:
+        seasons_to_pull = [season - 2, season - 1, season]
     game_log = get_pitcher_multi_season_log(mlbam_id, seasons_to_pull)
     rolling  = _rolling_features(game_log, game_date)
 

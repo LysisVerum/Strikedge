@@ -10,33 +10,36 @@ import pandas as pd
 
 
 FEATURE_COLS = [
-    # Rolling pitcher K rate
+    # Rolling pitcher K rate — short windows are noisy, longer windows anchor predictions
     "k_pct_last5",
     "k_pct_last15",
+    "k_pct_last30",   # ~2-season anchor; dampens cold-streak overreaction
     "k_pct_season",
+    "k_pct_career",   # career K rate — strongest prior against regression-to-mean noise
     # K-rate momentum: positive = heating up, negative = slipping
-    "k_trend",       # k_pct_last5 - k_pct_last15
+    "k_trend",        # k_pct_last5 - k_pct_last15
+    "k_vs_career",    # k_pct_last15 - k_pct_career (how far from true talent)
     # Pitcher quality (defense-independent)
-    "fip_last15",    # fielding-independent pitching over last 15 starts
+    "fip_last15",     # fielding-independent pitching over last 15 starts
     # Pitch-mix features (from Statcast)
-    "ff_pct",        # four-seam fastball usage %
+    "ff_pct",         # four-seam fastball usage %
     # Velocity / spin
     "ff_velo_avg",
     "ff_spin_avg",
     # Swing-and-miss
-    "swstr_pct",     # swinging strike rate = (swinging_strike + swinging_strike_blocked) / total pitches
-    "whiff_pct",     # whiff rate = swinging_strike / total swings
-    "csw_pct",       # called strike + whiff % = (called_strike + swinging_strike) / total pitches
+    "swstr_pct",      # swinging strike rate
+    "whiff_pct",      # whiff rate
+    "csw_pct",        # called strike + whiff %
     # Recent workload
     "avg_ip_last5",
-    # Season context — early-season starts have stale prior-year features
-    "season_starts", # qualifying starts made so far this season (0 on debut)
+    # Season context
+    "season_starts",
     # Opponent factors
-    "opp_k_pct",           # opponent team K% prior season (fallback)
-    "opp_lineup_k_pct",    # weighted K% of today's actual lineup (prior-season rates)
-    "matchup_k_score",     # pitcher pitch mix × opponent K% vs each pitch type
+    "opp_k_pct",
+    "opp_lineup_k_pct",
+    "matchup_k_score",
     # Umpire
-    "umpire_k_rate",       # home plate umpire's historical K rate
+    "umpire_k_rate",
 ]
 
 
