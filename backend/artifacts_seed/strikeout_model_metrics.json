@@ -1,17 +1,22 @@
 {
-  "cv_mae": 1.847,
-  "cv_mae_std": 0.0184,
-  "train_mae": 1.7134,
-  "test_mae": 1.8116,
-  "residual_std": 2.2638,
-  "n_samples": 25180,
+  "cv_mae": 1.8479,
+  "cv_mae_std": 0.0116,
+  "train_mae": 1.7089,
+  "test_mae": 1.8029,
+  "residual_std": 2.2505,
+  "calibration_slope": 0.9685,
+  "calibration_intercept": -0.0394,
+  "n_samples": 25200,
   "objective": "count:poisson",
   "data_source": "real_statcast",
   "features": [
     "k_pct_last5",
     "k_pct_last15",
+    "k_pct_last30",
     "k_pct_season",
+    "k_pct_career",
     "k_trend",
+    "k_vs_career",
     "fip_last15",
     "ff_pct",
     "ff_velo_avg",
@@ -35,7 +40,5 @@
     2022,
     2023,
     2024
-  ],
-  "calibration_slope": 0.9412,
-  "calibration_intercept": 0.0985
+  ]
 }
