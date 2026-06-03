@@ -1,10 +1,10 @@
 {
-  "cv_mae": 1.8524,
-  "cv_mae_std": 0.0128,
-  "train_mae": 1.7046,
-  "test_mae": 1.8336,
-  "residual_std": 2.2748,
-  "n_samples": 22198,
+  "cv_mae": 1.847,
+  "cv_mae_std": 0.0184,
+  "train_mae": 1.7134,
+  "test_mae": 1.8116,
+  "residual_std": 2.2638,
+  "n_samples": 25180,
   "objective": "count:poisson",
   "data_source": "real_statcast",
   "features": [
@@ -26,16 +26,6 @@
     "matchup_k_score",
     "umpire_k_rate"
   ],
-  "top_features": {
-    "k_pct_last15": 0.2435,
-    "k_pct_season": 0.1316,
-    "avg_ip_last5": 0.0554,
-    "ff_velo_avg": 0.0549,
-    "opp_lineup_k_pct": 0.0502,
-    "ff_spin_avg": 0.0447,
-    "swstr_pct": 0.0443,
-    "k_pct_last5": 0.0443
-  },
   "train_seasons": [
     2016,
     2017,
@@ -43,6 +33,9 @@
     2019,
     2021,
     2022,
-    2023
-  ]
+    2023,
+    2024
+  ],
+  "calibration_slope": 0.9412,
+  "calibration_intercept": 0.0985
 }

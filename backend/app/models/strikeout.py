@@ -112,7 +112,7 @@ class StrikeoutModel:
         X = feature_row[FEATURE_COLS].values.reshape(1, -1)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            predicted_ks = float(self._model.predict(X)[0])
+            predicted_ks = _calibrate(float(self._model.predict(X)[0]))
 
         # Early-season flag: fewer than 5 current-season starts means rolling
         # features are mostly prior-year data — predictions are less reliable.
