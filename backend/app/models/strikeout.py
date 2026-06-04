@@ -127,7 +127,15 @@ class StrikeoutModel:
         # Widen uncertainty early in the season: more variance, less confidence.
         std = base_std * 1.25 if early_season else base_std
 
-        model_prob_over  = _normal_prob_over(predicted_ks, line, std)
+        # Conservative gap cap: backtest shows bets where the model predicts
+        # more than 1.3 Ks below the line have poor win rates (cold-streak pitchers
+        # who bounce back). Cap the effective prediction used for probability to
+        # at most 1.3 Ks below the line so edge — and Kelly bet size — stay in
+        # the profitable range. The displayed predicted_ks stays as the raw output.
+        _MAX_UNDER_GAP = 1.3
+        effective_ks = max(predicted_ks, line - _MAX_UNDER_GAP)
+
+        model_prob_over  = _normal_prob_over(effective_ks, line, std)
         model_prob_under = 1 - model_prob_over
 
         # Compute edge on both sides independently — pick whichever is better

@@ -1,7 +1,7 @@
 {
-  "cv_mae": 1.8479,
-  "cv_mae_std": 0.0116,
-  "train_mae": 1.7089,
+  "cv_mae": 1.8447,
+  "cv_mae_std": 0.0103,
+  "train_mae": 1.7073,
   "test_mae": 1.8029,
   "residual_std": 2.2505,
   "calibration_slope": 0.9685,
