@@ -1,13 +1,21 @@
 """
 Feature engineering for the strikeout prop model.
 
-Every feature is derived from publicly available pitcher game logs and
-Statcast data. The pipeline is designed to work both for training
-(historical rows) and live inference (most-recent N starts).
+Two feature sets are defined:
+  FEATURE_COLS        — current rolling-window model (production)
+  PROFILE_FEATURE_COLS — new profile-based model (redesign in progress)
+
+The profile model anchors every prediction to stable career talent rather
+than noisy short-term windows, and uses real matchup scoring (pitcher
+arsenal × per-pitch-type hitter K rates) instead of team-level proxies.
 """
 import numpy as np
 import pandas as pd
 
+
+# ---------------------------------------------------------------------------
+# Current model (rolling windows)
+# ---------------------------------------------------------------------------
 
 FEATURE_COLS = [
     # Rolling pitcher K rate — short windows are noisy, longer windows anchor predictions
@@ -40,6 +48,39 @@ FEATURE_COLS = [
     "matchup_k_score",
     # Umpire
     "umpire_k_rate",
+]
+
+
+# ---------------------------------------------------------------------------
+# Profile-based model (redesign)
+# ---------------------------------------------------------------------------
+
+PROFILE_FEATURE_COLS = [
+    # --- Pitcher stable talent (from career game logs) ---
+    "p_k_pct_career",       # 3yr-weighted career K rate — primary talent signal
+    "p_k_pct_recent",       # last 15 starts — form modifier on top of career
+    "p_form",               # p_k_pct_recent - p_k_pct_career (deviation from talent)
+    "p_bb_pct_career",      # walk rate — limits innings and drives pitch count
+    "p_ip_per_start",       # typical outing length — directly scales K total
+    "p_fip",                # FIP over last 15 starts — defense-independent quality
+
+    # --- Pitcher pitch quality (from Statcast) ---
+    "p_whiff_rate",         # overall whiff rate across all pitch types
+    "p_csw_rate",           # called strike + whiff — best single K predictor
+    "p_velo_ff",            # fastball velocity — correlates with swing-and-miss
+    "p_offspeed_pct",       # SL+CH+CU+ST usage — breaking/offspeed heavy = more Ks
+
+    # --- Matchup: pitcher arsenal × lineup pitch-type K vulnerability ---
+    "matchup_k_score",      # pitcher pitch mix × opponent K% per pitch type
+
+    # --- Opponent lineup (individual batter profiles) ---
+    "lineup_k_pct",         # avg career K rate of today's actual lineup batters
+    "lineup_chase_rate",    # how aggressively this lineup chases — favours Ks
+    "lineup_contact_rate",  # contact skill — lower = more Ks
+
+    # --- Context ---
+    "umpire_k_rate",        # home plate umpire historical K rate
+    "season_starts",        # pitcher's starts so far this season
 ]
 
 
